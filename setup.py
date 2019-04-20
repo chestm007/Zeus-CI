@@ -8,7 +8,7 @@ with open('README.md') as f:
 
 setup(
     name='lcircle',
-    version='0.0.1',
+    version='PROJECTVERSION',
     packages=find_packages(),
     url='https://github.com/chestm007/lcircle',
     license='GPL-2.0',
