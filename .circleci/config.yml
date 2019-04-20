@@ -1,243 +1,64 @@
+default_steps: &default_steps
+  steps:
+    - checkout
+    - run:
+        name: install dependencies
+        command: |
+          sudo apt-get update
+          sudo apt-get install -y virtualenv
+          python -m venv venv
+          sudo chmod -R a+rwx /usr/share
+          . venv/bin/activate
+          pip install .
 
-# Common sections
-defaults: &defaults
-  working_directory: ~/aur
-  docker:
-    - image: imrehg/archlinux-makepkg
+upload_to_pypi: &upload_to_pypi
+  steps:
+    - checkout
+    - run:
+        name: init .pypirc
+        command: |
+          echo -e "[pypi]" >> ~/.pypirc
+          echo -e "username = chestm007" >> ~/.pypirc
+          echo -e "password = $PYPI_PASSWORD" >> ~/.pypirc
 
-updatepackage: &updatepackage
-  name: Update packages
-  command: |
-    sudo pacman -Syu --noconfirm
-    sudo sed -i 's/^#MAKEFLAGS=.*/MAKEFLAGS="-j$(nproc)"/g' /etc/makepkg.conf
+    - run:
+        name: package and upload
+        command: |
+          sudo apt-get install -y virtualenv
+          python -m venv venv
+          . venv/bin/activate
+          pip install twine
+          sed -i "s/PROJECTVERSION/`python get_build_version.py`/g" setup.py
+          python setup.py sdist
+          twine upload dist/*
 
-gitupdate: &gitupdate
-  name: Git repo updates
-  command: |
-    sed -i "s#ssh+git://aur@aur.archlinux.org#https://aur.archlinux.org#" .gitmodules
-    git submodule update --init
-
-pkgbuildtest: &pkgbuildtest
-  name: Testing PKGBUILD
-  command: |
-    cd ~/aur/${CIRCLE_JOB}
-    namcap PKGBUILD
-
-buildtest: &buildtest
-  name: Building package
-  command: |
-    cd ~/aur/${CIRCLE_JOB}
-    makepkg -sci --noconfirm
-
-install_cassandra: &install_cassandra
-  name: Build and install cassandra package from aur
-  command: |
-    cd ~/
-    git clone https://aur.archlinux.org/cassandra.git
-    cd cassandra
-    makepkg -si --noconfirm --skippgpcheck
-
-install_deb2targz: &install_deb2targz
-  name: Build and install deb2targz from aur
-  command: |
-    cd ~/
-    git clone https://aur.archlinux.org/deb2targz.git
-    cd deb2targz
-    makepkg -si --noconfirm
-
-install_flexget_aur_deps: &install_flexget_aur_deps
-  name: Build and install flexget deps
-  command: |
-    cd ~/
-    sudo pacman -S python2 python2-setuptools --noconfirm
-    sudo pacman -S python python-setuptools --noconfirm
-    git clone https://aur.archlinux.org/python2-zxcvbn.git
-    cd python2-zxcvbn
-    makepkg -s package_python-zxcvbn --noconfirm
-    sudo pacman -U python-zxcvbn* --noconfirm
-
-    cd ~/
-    git clone https://aur.archlinux.org/python-pynzb.git
-    cd python-pynzb
-    makepkg -si --noconfirm
-
-    cd ~/
-    git clone https://aur.archlinux.org/python-plumbum.git
-    cd python-plumbum
-    makepkg -si --noconfirm
-    cd ~/
-    git clone https://aur.archlinux.org/python-rpyc.git
-    cd python-rpyc
-    makepkg -s
-    sudo pacman -U python-rpyc-*.tar.xz --noconfirm
-
-    cd ~/
-    git clone https://aur.archlinux.org/python-rebulk.git
-    cd python-rebulk
-    makepkg -si --noconfirm
-
-    cd ~/
-    git clone https://aur.archlinux.org/python-babelfish.git
-    cd python-babelfish
-    makepkg -si --noconfirm
-
-    cd ~/
-    git clone https://aur.archlinux.org/python-guessit.git
-    cd python-guessit
-    makepkg -si --noconfirm
-
-    cd ~/
-    git clone https://aur.archlinux.org/python-apscheduler.git
-    cd python-apscheduler
-    makepkg -si --noconfirm
-
-    cd ~/
-    git clone https://aur.archlinux.org/python2-flask-restplus.git
-    cd python2-flask-restplus
-    makepkg -si --noconfirm
-
-    cd ~/
-    git clone https://aur.archlinux.org/python2-flask-compress.git
-    cd python2-flask-compress
-    makepkg -si --noconfirm
-
-    cd ~/
-    git clone https://aur.archlinux.org/python-flask-cors.git
-    cd python-flask-cors
-    makepkg -si --noconfirm
-
-
-
-# Main
 version: 2
 jobs:
-  linux-asus-aura:
-    <<: *defaults
-    steps:
-      - run:
-          <<: *updatepackage
-      - run:
-          name: add key to pacman
-          command: |
-            sudo pacman-key --recv-keys A5E9288C4FA415FA
-            sudo gpg --recv-keys A5E9288C4FA415FA
-      - checkout
-      - run:
-          <<: *gitupdate
-      - run:
-          <<: *pkgbuildtest
-      - run:
-          <<: *buildtest
-  amdgpu-fan:
-    <<: *defaults
-    steps:
-      - run:
-          <<: *updatepackage
-      - checkout
-      - run:
-          <<: *gitupdate
-      - run:
-          <<: *pkgbuildtest
-      - run:
-          <<: *buildtest
-  linux-thermaltake-rgb:
-    <<: *defaults
-    steps:
-      - run:
-          <<: *updatepackage
-      - checkout
-      - run:
-          <<: *gitupdate
-      - run:
-          <<: *pkgbuildtest
-      - run:
-          <<: *buildtest
-  kairosdb:
-    <<: *defaults
-    steps:
-      - run:
-          <<: *updatepackage
-      - run:
-          <<: *install_cassandra
-      - run:
-          <<: *install_deb2targz
-      - checkout
-      - run:
-          <<: *gitupdate
-      - run:
-          <<: *pkgbuildtest
-      - run:
-          <<: *buildtest
-  python2-cassandra-driver-git:
-    <<: *defaults
-    steps:
-      - run:
-          <<: *updatepackage
-      - checkout
-      - run:
-          <<: *gitupdate
-      - run:
-          <<: *pkgbuildtest
-      - run:
-          <<: *buildtest
-      - persist_to_workspace:
-          root: python2-cassandra-driver-git
-          paths: python2-cassandra-driver-git-*.pkg.tar.xz
-  cqlsh:
-    <<: *defaults
-    steps:
-      - run:
-          <<: *updatepackage
-      - attach_workspace:
-          at: /tmp/workspace
-      - run:
-          name: install python2-cassandra-driver
-          command: sudo pacman -U --noconfirm /tmp/workspace/python2-cassandra-driver-git-*.pkg.tar.xz
-      - checkout
-      - run:
-          <<: *gitupdate
-      - run:
-          <<: *pkgbuildtest
-      - run:
-          <<: *buildtest
-  python-cassandra-driver-git:
-    <<: *defaults
-    steps:
-      - run:
-          <<: *updatepackage
-      - checkout
-      - run:
-          <<: *gitupdate
-      - run:
-          <<: *pkgbuildtest
-      - run:
-          <<: *buildtest
-  flexget-git:
-    <<: *defaults
-    steps:
-      - run:
-          <<: *updatepackage
-      - run:
-          <<: *install_flexget_aur_deps
-      - checkout
-      - run:
-          <<: *gitupdate
-      - run:
-          <<: *pkgbuildtest
-      - run:
-          <<: *buildtest
+  python3.6:
+    docker:
+      - image: circleci/python:3.6.8-stretch
+    working_directory: ~/repo
+    <<: *default_steps
+  python3.7:
+    docker:
+      - image: circleci/python:3.7.3-stretch
+    working_directory: ~/repo
+    <<: *default_steps
+  deploy:
+    docker:
+      - image: circleci/python:3.7.3-stretch
+    working_directory: ~/repo
+    <<: *upload_to_pypi
+
 
 workflows:
   version: 2
-  build:
+  build_and_test:
     jobs:
-      #- linux-asus-aura
-      - linux-thermaltake-rgb
-      - kairosdb
-      - amdgpu-fan
-      - python2-cassandra-driver-git
-      - flexget-git
-      - python-cassandra-driver-git
-      - cqlsh:
+      - python3.6
+      - python3.7
+      - deploy:
           requires:
-            - python2-cassandra-driver-git
+            - python3.6
+            - python3.7
+

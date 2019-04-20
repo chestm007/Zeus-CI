@@ -251,6 +251,7 @@ def main(repo_slab=None):
     clone_url = 'https://github.com/{}.git'.format(repo_slab)
     _verify_deps_exist()
     config = _load_circle_config()
+    jobs = {}
     for name, workflow in config.get('workflows').items():
         if name == 'version':
             continue
@@ -264,7 +265,7 @@ def main(repo_slab=None):
         print(jobs.keys())
         for job_name in jobs.keys():
             run_job(job_name)
-    for completed_job_name, completed_job in jobs.items:
+    for completed_job_name, completed_job in jobs.items():
         if completed_job.state != Status.passed:
             return False
     return True
