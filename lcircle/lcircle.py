@@ -1,15 +1,38 @@
+import argparse
 import os
+import shutil
 import subprocess
 import sys
 import time
-from collections import namedtuple
 from enum import Enum
 from subprocess import PIPE
 
 import yaml
 import uuid
 
-ProcessOutput = namedtuple('ProcessOutput', ('stdout', 'stderr', 'returncode'))
+
+class ProcessOutput:
+    def __init__(self, stdout, stderr, returncode):
+        self.stdout = stdout.decode()
+        self.stderr = stderr.decode()
+        self.returncode = returncode
+
+    def __nonzero__(self):
+        return self.__bool__()
+
+    def __bool__(self):
+        if self.returncode == 0:
+            return True
+        return False
+
+    @property
+    def output(self):
+        return '==stdout==\n{}\n\n\n==stderr==\n{}\n'.format(self.stdout, self.stderr)
+
+    def __repr__(self):
+        return '{}(stdout={}, stderr={}, returncode={})'.format(
+            self.__class__.__name__, self.stdout, self.stderr, self.returncode)
+
 
 Status = Enum('status', 'created running passed failed')
 
@@ -39,20 +62,18 @@ class DockerContainer:
         self._start()
         self.w_dir = None
         if working_directory and working_directory.startswith('~'):
-            tilda = self.exec('echo $HOME').strip('\n')
+            tilda = self.exec('echo $HOME').stdout.strip('\n')
             working_directory = working_directory.replace('~', tilda)
             self.exec('mkdir {}'.format(working_directory))
             self.w_dir = working_directory
 
     def _start(self):
         info = _exec(['docker', 'run', '--detach', '-ti', '--name', self.name, self.image])
-        if info.returncode == 0:
-            return info.stdout
+        return info
 
     def _stop(self):
         info = _exec(['docker', 'rm', '-f', self.name])
-        if info.returncode == 0:
-            return info.stdout
+        return info
 
     def exec(self, command):
         cmd = ['docker', 'exec']
@@ -63,15 +84,10 @@ class DockerContainer:
         cmd.append(self.name)
         cmd.extend(['bash', '-c', command])
         out = _exec(cmd)
-        if out.returncode == 0:
-            if out.stdout:
-                return out.stdout.decode()
-            else:
-                return True
-        print(out)
+        return out
 
     def persist_to_tmp(self, root, paths):
-        files = self.exec('cd {}&& echo `pwd`/`ls -d {}`'.format(root, paths)).splitlines()
+        files = self.exec('cd {}&& echo `pwd`/`ls -d {}`'.format(root, paths)).stdout.splitlines()
         for file in files:
             if not self._copy_file_to_workspace(file):
                 return False
@@ -88,7 +104,7 @@ class DockerContainer:
         base_path = '/tmp/lcircle/{}'.format(self.exec_uuid)
         for file in os.listdir(base_path):
             info = _exec(['docker', 'cp', '/tmp/lcircle/{}/{}'.format(self.exec_uuid, file), '{}:{}'.format(self.name, dest)])
-            if info.returncode == 0:
+            if info:
                 continue
             else:
                 print('attach workspace failed: {}'.format(info))
@@ -128,7 +144,7 @@ class Job:
             print('Executing Step: {}'.format(str(step)))
             output = step.run()
             if not output:
-                print('ERROR: Job[{}]'.format(self.name))
+                print('ERROR: Job[{}]\n{}'.format(self.name, output.output))
                 self.state = Status.failed
                 return
         print('Job ({}) Passed in {} seconds'.format(self.name, self.docker.duration))
@@ -166,9 +182,7 @@ class PersistStep(Step):
 
     def run(self):
         out = self.docker.persist_to_tmp(self.root, self.paths)
-        if out:
-            return True
-        print('{} ERROR {}'.format(str(self), out))
+        return out
 
     def __str__(self):
         return 'persist_to_workspace: root({}) paths({})'.format(self.root, self.paths)
@@ -180,9 +194,7 @@ class AttachStep(Step):
 
     def run(self):
         out = self.docker.copy_workspace_to_container(self.at)
-        if out:
-            return True
-        print('{} ERROR {}'.format(str(self), out))
+        return out
 
     def __str__(self):
         return 'attach_workspace: {}'.format(self.at)
@@ -191,9 +203,7 @@ class AttachStep(Step):
 class CheckoutStep(Step):
     def run(self):
         out = self.docker.exec('git clone {} .'.format(self.docker.clone_url))
-        if out:
-            return True
-        print('{} ERROR {}'.format(str(self), out))
+        return out
 
     def __str__(self):
         return 'checkout'
@@ -206,22 +216,30 @@ class RunStep(Step):
 
     def run(self):
         out = self.docker.exec(self.command)
-        if out:
-            return True
-        print('{} ERROR {}'.format(str(self), out))
+        return out
 
     def __str__(self):
         return '{}\n{}'.format(self.name, self.command)
 
 
-def main(repo_slab=None):
+def main(repo_slab=None, args=None):
+    if args is None:
+        parser = argparse.ArgumentParser(description='Run circleci jobs locally through docker')
+        parser.add_argument('--env', type=str, nargs='+', help='K=V environment vars to pass to the test')
+        parser.add_argument('--noclean', type=bool, help='dont remove /tmp/lcircle files or docker containers')
+        args = parser.parse_args()
+
     if repo_slab is None:
+        # This is insanely nasty and likely fragile as fuck - it takes a list of gir remotes and decodes
+        # the github slab (chestm007/lcircle) from it. supports git and http as of now, but will likely
+        # support most other types.
         def get_slab(in_):
             return '/'.join(in_.split(':')[-1].replace('.git', '').split('/')[-2:])
 
-        for line in _exec(['git', 'remote', '-v']).stdout.decode().splitlines():
+        for line in _exec(['git', 'remote', '-v']).stdout.splitlines():
             if '(fetch)' in line:
                 repo_slab = get_slab(line.split()[1])
+
     if not repo_slab:
         print('not in the root directory of a git repository, exiting')
         sys.exit(1)
@@ -261,15 +279,17 @@ def main(repo_slab=None):
             if type(name) == dict:
                 requires = list(name.values())[0].get('requires')
                 name = list(name.keys())[0]
-            jobs[name] = Job(name, exec_uuid, clone_url, config['jobs'].get(name), requires=requires)
-        print(jobs.keys())
+            jobs[name] = Job(name, exec_uuid, clone_url, config['jobs'].get(name), requires=requires, env_vars=args.env)
         for job_name in jobs.keys():
             run_job(job_name)
     for completed_job_name, completed_job in jobs.items():
+        if not args.noclean:
+            completed_job.docker.stop()
         if completed_job.state != Status.passed:
             return False
-    return True
-    # shutil.rmtree('/tmp/lcircle/{}'.format(exec_uuid))
+    if args.noclean:
+        return True
+    shutil.rmtree('/tmp/lcircle/{}'.format(exec_uuid))
 
 
 def _load_circle_config():
