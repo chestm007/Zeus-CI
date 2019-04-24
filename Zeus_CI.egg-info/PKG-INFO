@@ -1,0 +1,13 @@
+Metadata-Version: 1.2
+Name: Zeus-CI
+Version: PROJECTVERSION
+Summary: python CI server that tries to not suck
+Home-page: https://github.com/chestm007/lcircle
+Author: Max Chesterfield
+Author-email: chestm007@hotmail.com
+Maintainer: Max Chesterfield
+Maintainer-email: chestm007@hotmail.com
+License: GPL-2.0
+Description: python CI server designed to be as simple to configure as CircleCI, as Free and open as Jenkins but written in a clean and easy to understand way (also named after my dog because i couldnt come up with a decent name)
+        
+Platform: UNKNOWN

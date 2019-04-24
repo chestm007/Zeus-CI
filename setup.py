@@ -7,7 +7,7 @@ with open('README.md') as f:
 
 
 setup(
-    name='lcircle',
+    name='Zeus-CI',
     version='PROJECTVERSION',
     packages=find_packages(),
     url='https://github.com/chestm007/lcircle',
@@ -16,13 +16,13 @@ setup(
     author_email='chestm007@hotmail.com',
     maintainer='Max Chesterfield',
     maintainer_email='chestm007@hotmail.com',
-    description='local test runner for circleci',
+    description='python CI server that tries to not suck',
     long_description=readme,
     install_requires=[
         'pyyaml',
     ],
     entry_points="""
         [console_scripts]
-        lcircle=lcircle.lcircle:main
+        zeus-ci=zeus_ci.zeus_ci:main
     """,
 )
