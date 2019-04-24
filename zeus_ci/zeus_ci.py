@@ -265,22 +265,21 @@ class Workflow:
             if stage.requires and all(type(r) == str for r in stage.requires):
                 stage.requires = [self.stages[r] for r in stage.requires]
 
-    def _runnable_stages(self) -> List[Stage]:
+    def runnable_stages(self) -> List[Stage]:
+        runnable_stages = []
         if not any(s.state in (Status.created, Status.starting, Status.running) for s in self.stages.values()):
-            print([[s.name, s.state] for s in self.stages.values()])
             raise StopIteration
         for stage in self.stages.values():
             if stage.state == Status.created:
                 if stage.requires:
                     if all(r.state == Status.passed for r in stage.requires):
-                        yield stage
+                        runnable_stages.append(stage)
                     elif any(r.state in (Status.failed, Status.skipped) for r in stage.requires):
                         print('skipping {}'.format(stage.name))
                         stage.state = Status.skipped
                 else:
-                    yield stage
-        print('spinning')
-        time.sleep(1)
+                    runnable_stages.append(stage)
+        return runnable_stages
 
     def _add_stage(self, stage: Stage) -> None:
         self.stages[stage.name] = stage
@@ -288,7 +287,15 @@ class Workflow:
     def run(self) -> None:
         self.status = Status.running
         pool = ThreadPool(self.num_threads)
-        results = pool.map(self._run_stage, self._runnable_stages)
+        while True:
+            try:
+                stages = self.runnable_stages()
+                if stages:
+                    pool.map_async(self._run_stage, stages)
+                time.sleep(1)
+            except StopIteration:
+                print('ending it')
+                break
 
         print(self.status_string)
 
