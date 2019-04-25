@@ -298,12 +298,15 @@ class Workflow:
         self.stages = {}
         for name in spec['stages']:
             requires = None
+            run_condition = None
             if type(name) == dict:
                 requires = list(name.values())[0].get('requires')
+                run_condition = name.get('run_when')
                 name = list(name.keys())[0]
+                print(name)
             self._add_stage(Stage(name, self.exec_uuid, clone_url, jobs.get(name),
                                   requires=requires, env_vars=env_vars, ref=self.ref,
-                                  run_condition=name.get('run_when')))
+                                  run_condition=run_condition))
         self._populate_requires()
 
     def _populate_requires(self) -> None:
@@ -386,7 +389,8 @@ def main(repo_slab: str = None, env_vars: List[str] = None, threads: int = 1, re
     if args.threads:
         threads = args.threads
 
-    env_vars = env_vars.extend(args.env) if env_vars else args.env
+    if args.env:
+        env_vars = env_vars.extend(args.env) if env_vars else args.env
 
     if not repo_slab:
         repo_slab = None

@@ -59,6 +59,7 @@ class BuildCoordinator:
         except Exception as e:
             print('error from process: {}'.format(e))
             persistence.conn.close()
+            raise e
 
 
 
