@@ -13,6 +13,16 @@ import uuid
 
 
 Status = Enum('status', 'created starting running passed failed skipped')
+status_from_name_mapping = {s.name: s for s in Status}
+status_from_value_mapping = {s.value: s for s in Status}
+
+
+def status_from_name(name_):
+    return status_from_name_mapping[name_]
+
+
+def status_from_value(value_):
+    return status_from_value_mapping[value_]
 
 
 class ProcessOutput:
@@ -49,7 +59,7 @@ class DockerContainer:
     workspace_dir = '/tmp/zeus-ci'
 
     def __init__(self, name: str, image: str, exec_uuid: uuid, clone_url: str, working_directory: str = None,
-                 env_vars: List[str] = None):
+                 env_vars: List[str] = None, ref: str = None):
         self._start_time = time.time()
         self._duration = None
         self.failed = False
@@ -62,6 +72,7 @@ class DockerContainer:
         self.name = '{}-{}'.format(str(name), self.exec_uuid)
         self.stage_name = str(name)
         self.env_vars = env_vars or []
+        self.ref = ref
 
         self.env_vars.append('ZEUS_JOB={}'.format(self.stage_name))
         self.w_dir = None
@@ -130,10 +141,11 @@ class DockerContainer:
 
 class Stage:
     def __init__(self, name: str, exec_uuid: uuid, clone_url: str, spec: Dict[str, dict], env_vars: List[str] = None,
-                 requires: str = None):
+                 requires: str = None, ref: str = None):
         self.name = name
         self.requires = requires
         self.state = Status.created
+        self.ref = ref
 
         self.exec_uuid = exec_uuid
         self.clone_url = clone_url
@@ -141,7 +153,7 @@ class Stage:
         self.steps = spec.get('steps')
         self.working_directory = spec.get('working_directory')
         self.docker = DockerContainer(self.name, spec.get('docker')[0].get('image'), self.exec_uuid,
-                                      self.clone_url, self.working_directory, self.env_vars)
+                                      self.clone_url, self.working_directory, self.env_vars, ref = self.ref)
         self.steps = [Step.factory(self.docker, step) for step in spec.get('steps')]
 
     def run(self) -> None:
@@ -214,6 +226,11 @@ class AttachStep(Step):
 class CheckoutStep(Step):
     def run(self) -> ProcessOutput:
         out = self.docker.exec('git clone {} .'.format(self.docker.clone_url))
+
+        if not self.docker.ref:  # if we arent building a tag/commit, just return
+            return out
+
+        out = self.docker.exec('git checkout {}'.format(self.docker.ref))
         return out
 
     def __str__(self):
@@ -246,12 +263,14 @@ class Workflow:
                  spec: Dict[str, dict],
                  clone_url: str,
                  num_threads: int,
-                 env_vars: List[str] = None):
+                 env_vars: List[str] = None,
+                 ref: str = None):
 
         self.exec_uuid = uuid.uuid4().hex
         self.status = Status.created
         self.num_threads = num_threads
         self.name = name
+        self.ref = ref
         os.mkdir('{}/{}'.format(DockerContainer.workspace_dir, self.exec_uuid))
 
         self.stages = {}
@@ -261,7 +280,7 @@ class Workflow:
                 requires = list(name.values())[0].get('requires')
                 name = list(name.keys())[0]
             self._add_stage(Stage(name, self.exec_uuid, clone_url, jobs.get(name),
-                                  requires=requires, env_vars=env_vars))
+                                  requires=requires, env_vars=env_vars, ref=self.ref))
         self._populate_requires()
 
     def _populate_requires(self) -> None:
@@ -329,11 +348,15 @@ class Workflow:
         return status_string
 
 
-def main(repo_slab: str = None, env_vars: List[str] = None, threads: int = 1) -> bool:
+def main(repo_slab: str = None, env_vars: List[str] = None, threads: int = 1, ref=None) -> bool:
     parser = argparse.ArgumentParser(description='Run Zeus-CI jobs locally through docker')
     parser.add_argument('--env', type=str, nargs='+', help='K=V environment vars to pass to the test')
     parser.add_argument('--threads', type=int, help='number of worker threads(docker containers) to run concurrently')
+    parser.add_argument('--ref', type=str, help='git ref(commit/tag) to checkout')
     args = parser.parse_args()
+
+    if args.ref:
+        ref = args.ref
 
     if args.threads:
         threads = args.threads
@@ -364,11 +387,17 @@ def main(repo_slab: str = None, env_vars: List[str] = None, threads: int = 1) ->
     config = _load_repo_config()
     workflow_version = config.get('workflows').pop('version')
 
-    workflows = {name: Workflow(name, config['jobs'], spec, clone_url, threads, env_vars=env_vars)
+    workflows = {name: Workflow(name, config['jobs'], spec, clone_url, threads, env_vars=env_vars, ref=ref)
                  for name, spec in config['workflows'].items()}
 
+    status = Status.passed
     for workflow_name, workflow in workflows.items():
-        workflow.run()
+        try:
+            if not workflow.run():
+                status = Status.failed
+        except Exception as e:
+            print(workflow_name, e)
+    return status == Status.passed
 
 
 def _load_repo_config() -> dict:
