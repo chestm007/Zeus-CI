@@ -169,7 +169,8 @@ class Stage:
         self.steps = [Step.factory(self.docker, step) for step in spec.get('steps')]
 
     def run(self) -> None:
-        print('branch', self.branch, 'envvars', self.env_vars, 'conditions', self.run_condition)
+        if self.name == 'deploy':
+            print('branch', self.branch, 'envvars', self.env_vars, 'conditions', self.run_condition)
         if self.run_condition.get('branch'):
             if not re.search(self.run_condition['branch'], self.branch):
                 self.state = Status.skipped
@@ -281,7 +282,7 @@ def _setup() -> None:
 
 class Workflow:
     def __init__(self, name: int,
-                 jobs: Dict[str, dict],
+                 stages: Dict[str, dict],
                  spec: Dict[str, dict],
                  clone_url: str,
                  num_threads: int,
@@ -296,15 +297,16 @@ class Workflow:
         os.mkdir('{}/{}'.format(DockerContainer.workspace_dir, self.exec_uuid))
 
         self.stages = {}
-        for name in spec['stages']:
+        for stage in spec['stages']:
             requires = None
             run_condition = None
-            if type(name) == dict:
-                requires = list(name.values())[0].get('requires')
-                run_condition = name.get('run_when')
-                name = list(name.keys())[0]
-                print(name)
-            self._add_stage(Stage(name, self.exec_uuid, clone_url, jobs.get(name),
+            if type(stage) == dict:
+                stage_name = list(stage.keys())[0]
+                requires = stage[stage_name].get('requires')
+                run_condition = stage[stage_name].get('run_when')
+            else:
+                stage_name = stage
+            self._add_stage(Stage(stage_name, self.exec_uuid, clone_url, stages.get(stage_name),
                                   requires=requires, env_vars=env_vars, ref=self.ref,
                                   run_condition=run_condition))
         self._populate_requires()

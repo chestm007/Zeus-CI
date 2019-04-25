@@ -59,8 +59,8 @@ workflows:
       - python3.7
       - deploy:
           run_when:
-            branch: .*
-            tag: ^\d+\.\d+\.\d+$
+            branch: '.*'
+            tag: '^\d+\.\d+\.\d+$'
 
           requires:
             - python3.6
