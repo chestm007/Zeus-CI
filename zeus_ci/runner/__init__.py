@@ -177,7 +177,7 @@ class Stage:
                 return
         if self.run_condition.get('tag'):
             if not re.search(self.run_condition['tag'], self.tag):
-                self.status = Status.skipped
+                self.state = Status.skipped
                 return
 
         self.docker.start()

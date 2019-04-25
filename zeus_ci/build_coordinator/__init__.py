@@ -40,7 +40,7 @@ class BuildCoordinator:
 
                 if build.ref.startswith('refs/tags/'):
                     ref = build.ref.replace('refs/', '', 1)
-                    env_vars.append('ZEUS_TAG={}'.format(ref.replace('refs/tags/', '')))
+                    env_vars.append('ZEUS_TAG={}'.format(build.ref.replace('refs/tags/', '')))
                     env_vars.append('ZEUS_BRANCH={}'.format(build.json['base_ref'].replace('refs/heads/', '')))
                 elif build.ref.startswith('refs/heads/'):
                     ref = build.json['after']
