@@ -22,7 +22,6 @@ class SqliteConnection:
             self._create_schema()
 
     def _create_schema(self):
-        print('recreating')
         schema = """
         CREATE TABLE builds (
             id              integer PRIMARY KEY autoincrement NOT NULL,

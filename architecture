@@ -1,0 +1,19 @@
+listeners
+  \-- Github inserts one row per request to build into the database
+
+build_coordinator
+  |-- build_queue populated by new jobs from database(persistence)
+  \-- build_pool
+        |-- runner
+        |-- ...
+        \-- runner
+              |-- workflow
+              |-- ...
+              \-- workflow
+                    |-- stage
+                    |-- ...
+                    \-- stage
+                          |-- docker container
+                          \-- step
+                          \-- ...
+                          \-- step

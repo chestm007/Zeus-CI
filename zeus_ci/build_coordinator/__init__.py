@@ -1,4 +1,5 @@
 import multiprocessing
+import signal
 import time
 
 from zeus_ci import runner
@@ -29,25 +30,29 @@ class BuildCoordinator:
                                                self._run_from_queue, (self.build_queue, ))
 
     def _run_from_queue(self, queue):
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
         persistence = SqliteConnection(db_filename=self.config['db_filename'])
-        for build_id in iter(queue.get, None):
-            build = persistence.get_builds(build_id=build_id)[0]
-            ref = None
+        try:
+            for build_id in iter(queue.get, None):
+                build = persistence.get_builds(build_id=build_id)[0]
+                ref = None
 
-            if build.ref.startswith('refs/tags'):
-                ref = build.ref.replace('refs/', '', 1)
-            elif build.ref.startswith('refs/heads'):
-                ref = build.json['after']
+                if build.ref.startswith('refs/tags'):
+                    ref = build.ref.replace('refs/', '', 1)
+                elif build.ref.startswith('refs/heads'):
+                    ref = build.json['after']
 
-            if not ref:
-                print('err')
-            else:
-                print(build)
-                persistence.update_build(build.id, Status.starting)
-                if runner.main(build.repo, threads=self.config['runner_threads'], ref=ref):
-                    persistence.update_build(build.id, Status.passed)
+                if not ref:
+                    print('ERROR: {}, refn not detected'.format(build.id))
                 else:
-                    persistence.update_build(build.id, Status.failed)
+                    persistence.update_build(build.id, Status.starting)
+                    if runner.main(build.repo, threads=self.config['runner_threads'], ref=ref):
+                        persistence.update_build(build.id, Status.passed)
+                    else:
+                        persistence.update_build(build.id, Status.failed)
+        except Exception as e:
+            print('error from process: {}'.format(e))
+            persistence.conn.close()
 
 
 
@@ -58,13 +63,14 @@ class BuildCoordinator:
     def run(self):
         try:
             while True:
-                for build in reversed(self._runnable_builds):
-                    self.build_queue.put(build.id)
-                time.sleep(10)
+                if self.build_queue.empty():
+                    for build in reversed(self._runnable_builds):
+                        self.build_queue.put(build.id)
+                time.sleep(1)
         except KeyboardInterrupt:
+            print('recieved exit command, closing build processes.')
             for _ in range(self.config['concurrent_builds']):
                 self.build_queue.put(None)
-            time.sleep(2)
             self.build_pool.close()
             self.build_pool.join()
             pass

@@ -112,7 +112,7 @@ class DockerContainer:
                       '{}/{}'.format(self.workspace_dir, self.exec_uuid)])
         if info.returncode == 0:
             return True
-        print('persist to workspace failed: {}'.format(info))
+        print('ERROR: persist to workspace failed: {}'.format(info))
 
     def copy_workspace_to_container(self, dest: str) -> bool:
         self.exec('mkdir -p {}'.format(dest))
@@ -121,7 +121,7 @@ class DockerContainer:
             file_path = os.path.join(self.workspace_dir, self.exec_uuid, file)
             info = _exec(['docker', 'cp', file_path, '{}:{}'.format(self.name, dest)])
             if not info:
-                print('attach workspace failed: {}'.format(info))
+                print('ERROR: attach workspace failed: {}'.format(info))
                 return False
         return True
 
@@ -315,11 +315,13 @@ class Workflow:
             try:
                 stages = self.runnable_stages()
                 if stages:
-                    pool.map_async(self._run_stage, stages)
+                    for stage in stages:
+                        pool.apply_async(self._run_stage, (stage, ))
                 time.sleep(1)
             except StopIteration:
-                print('ending it')
                 break
+        pool.close()
+        pool.join()
 
         print(self.status_string)
 
@@ -400,7 +402,7 @@ def main(repo_slab: str = None, env_vars: List[str] = None, threads: int = 1, re
             if not workflow.run():
                 status = Status.failed
         except Exception as e:
-            print(workflow_name, e)
+            print('ERROR', workflow_name, e)
     return status == Status.passed
 
 
@@ -412,8 +414,7 @@ def _load_repo_config(repo_slab, ref) -> dict:
     """
     url_format = 'https://raw.githubusercontent.com/{repo_slab}/{ref}/.zeusci/config.yml'
     response = urllib.request.urlopen(url_format.format(repo_slab=repo_slab, ref=ref.split('/')[-1]))
-    print(response)
-    if response == 200:
+    if response.status == 200:
         config = yaml.load(response, yaml.Loader)
         return config
 
