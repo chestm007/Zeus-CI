@@ -3,6 +3,7 @@ import os
 import subprocess
 import sys
 import time
+import urllib.request
 from enum import Enum
 from multiprocessing.pool import ThreadPool
 from subprocess import PIPE
@@ -384,7 +385,10 @@ def main(repo_slab: str = None, env_vars: List[str] = None, threads: int = 1, re
 
     clone_url = 'https://github.com/{}.git'.format(repo_slab)
     _verify_deps_exist()
-    config = _load_repo_config()
+    config = _load_repo_config(repo_slab, ref)
+    if not config:
+        return False
+
     workflow_version = config.get('workflows').pop('version')
 
     workflows = {name: Workflow(name, config['jobs'], spec, clone_url, threads, env_vars=env_vars, ref=ref)
@@ -400,10 +404,17 @@ def main(repo_slab: str = None, env_vars: List[str] = None, threads: int = 1, re
     return status == Status.passed
 
 
-def _load_repo_config() -> dict:
-    with open('.zeusci/config.yml') as f:
-        config = yaml.load(f, yaml.Loader)
-    return config
+def _load_repo_config(repo_slab, ref) -> dict:
+    """
+    https://raw.githubusercontent.com/chestm007/Zeus-CI/master/.zeusci/config.yml
+    https://raw.githubusercontent.com/chestm007/Zeus-CI/142eb4bdbbc54371cbcc4a0000bd8eeea997d1f2/.zeusci/config.yml
+    https://raw.githubusercontent.com/chestm007/Zeus-CI/test-tag/.zeusci/config.yml
+    """
+    url_format = 'https://raw.githubusercontent.com/{repo_slab}/{ref}/.zeusci/config.yml'
+    response = urllib.request.urlopen(url_format.format(repo_slab=repo_slab, ref=ref.split('/')[-1]))
+    if response == 200:
+        config = yaml.load(response, yaml.Loader)
+        return config
 
 
 def _verify_deps_exist() -> None:

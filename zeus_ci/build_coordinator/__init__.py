@@ -25,14 +25,13 @@ class BuildCoordinator:
         self.persistence = SqliteConnection(db_filename=self.config['db_filename'])
 
         self.build_queue = multiprocessing.Queue()
-        self.build_pool = multiprocessing.Pool(self.config['concurrent_builds'])
-        for _ in range(self.config['concurrent_builds']):
-            self.build_pool.apply_async(self._run_from_queue, (self.build_queue, ))
+        self.build_pool = multiprocessing.Pool(self.config['concurrent_builds'],
+                                               self._run_from_queue, (self.build_queue, ))
 
     def _run_from_queue(self, queue):
         persistence = SqliteConnection(db_filename=self.config['db_filename'])
-        for build_id in iter(queue.get(), None):
-            build = persistence.get_builds(build_id=build_id)
+        for build_id in iter(queue.get, None):
+            build = persistence.get_builds(build_id=build_id)[0]
             ref = None
 
             if build.ref.startswith('refs/tags'):
@@ -63,6 +62,10 @@ class BuildCoordinator:
                     self.build_queue.put(build.id)
                 time.sleep(10)
         except KeyboardInterrupt:
+            for _ in range(self.config['concurrent_builds']):
+                self.build_queue.put(None)
+            self.build_pool.close()
+            self.build_pool.join()
             pass
         print(list(b.status for b in self.persistence.get_builds()))
 
