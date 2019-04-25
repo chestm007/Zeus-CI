@@ -1,5 +1,6 @@
 import argparse
 import os
+import re
 import subprocess
 import sys
 import time
@@ -142,22 +143,42 @@ class DockerContainer:
 
 class Stage:
     def __init__(self, name: str, exec_uuid: uuid, clone_url: str, spec: Dict[str, dict], env_vars: List[str] = None,
-                 requires: str = None, ref: str = None):
+                 requires: str = None, ref: str = None, run_condition: dict = None):
         self.name = name
         self.requires = requires
         self.state = Status.created
         self.ref = ref
+        self.tag = None
+        self.branch = None
+
+        self.env_vars = env_vars
+        for env_var in self.env_vars:
+            if env_var.startswith('ZEUS_TAG='):
+                self.tag = env_var.split('ZEUS_TAG=', 1)[-1]
+            elif env_var.startswith('ZEUS_BRANCH='):
+                self.branch = env_var.split('ZEUS_BRANCH=', 1)[-1]
+
+        self.run_condition = run_condition or {}
 
         self.exec_uuid = exec_uuid
         self.clone_url = clone_url
-        self.env_vars = env_vars
         self.steps = spec.get('steps')
         self.working_directory = spec.get('working_directory')
         self.docker = DockerContainer(self.name, spec.get('docker')[0].get('image'), self.exec_uuid,
-                                      self.clone_url, self.working_directory, self.env_vars, ref = self.ref)
+                                      self.clone_url, self.working_directory, self.env_vars, ref=self.ref)
         self.steps = [Step.factory(self.docker, step) for step in spec.get('steps')]
 
     def run(self) -> None:
+        print('branch', self.branch, 'envvars', self.env_vars, 'conditions', self.run_condition)
+        if self.run_condition.get('branch'):
+            if not re.search(self.run_condition['branch'], self.branch):
+                self.state = Status.skipped
+                return
+        if self.run_condition.get('tag'):
+            if not re.search(self.run_condition['tag'], self.tag):
+                self.status = Status.skipped
+                return
+
         self.docker.start()
         self._run()
         self.docker.stop()
@@ -281,7 +302,8 @@ class Workflow:
                 requires = list(name.values())[0].get('requires')
                 name = list(name.keys())[0]
             self._add_stage(Stage(name, self.exec_uuid, clone_url, jobs.get(name),
-                                  requires=requires, env_vars=env_vars, ref=self.ref))
+                                  requires=requires, env_vars=env_vars, ref=self.ref,
+                                  run_condition=name.get('run_when')))
         self._populate_requires()
 
     def _populate_requires(self) -> None:

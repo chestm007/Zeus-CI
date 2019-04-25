@@ -44,50 +44,11 @@ jobs:
       - image: circleci/python:3.7.3-stretch
     working_directory: ~/repo
     <<: *default_steps
-  fail-test:
-    docker:
-      - image: circleci/python:3.7.3-stretch
-    working_directory: ~/repo
-    steps:
-      - run:
-          name: fail
-          command: |
-            arghasasd
-  skip-test:
-    docker:
-      - image: circleci/python:3.7.3-stretch
-    working_directory: ~/repo
-    steps:
-      - run:
-          name: fail
-          command: |
-            echo hi
   deploy:
     docker:
       - image: circleci/python:3.7.3-stretch
     working_directory: ~/repo
     <<: *upload_to_pypi
-  echo-hi:
-    docker:
-      - image: circleci/python:3.7.3-stretch
-    working_directory: ~/repo
-    steps:
-      - run:
-          name: echo-hi
-          command: |
-            echo hi
-  echo-yo:
-    docker:
-      - image: circleci/python:3.7.3-stretch
-    working_directory: ~/repo
-    steps:
-      - run:
-          name: echo-yo
-          command: |
-            echo yo
-      - run:
-          command: |
-            ls
 
 
 workflows:
@@ -102,12 +63,10 @@ workflows:
       - python3.6
       - python3.7
       - deploy:
+          run_when:
+            branch: .*
+            tag: ^\d+\.\d+\.\d+$
+
           requires:
             - python3.6
             - python3.7
-  empty-test:
-    stages:
-      - echo-hi
-      - echo-yo:
-          requires:
-            - echo-hi
