@@ -1,6 +1,5 @@
 import argparse
 import os
-import shutil
 import subprocess
 import sys
 import time
@@ -58,26 +57,23 @@ class DockerContainer:
 
         self.clone_url = clone_url
         self.image = str(image)
-        self.name = str(name)
+        self._working_directory = working_directory
         self.exec_uuid = exec_uuid
+        self.name = '{}-{}'.format(str(name), self.exec_uuid)
+        self.stage_name = str(name)
         self.env_vars = env_vars or []
 
-        self.env_vars.append('CIRCLE_JOB={}'.format(self.name))
-        self._stop()
-        self._start()
+        self.env_vars.append('ZEUS_JOB={}'.format(self.stage_name))
         self.w_dir = None
-        if working_directory and working_directory.startswith('~'):
+        self.stop()
+
+    def start(self) -> ProcessOutput:
+        info = _exec(['docker', 'run', '--detach', '-ti', '--name', self.name, self.image])
+        if self._working_directory and self._working_directory.startswith('~'):
             tilda = self.exec('echo $HOME').stdout.strip('\n')
-            working_directory = working_directory.replace('~', tilda)
+            working_directory = self._working_directory.replace('~', tilda)
             self.exec('mkdir {}'.format(working_directory))
             self.w_dir = working_directory
-
-    def _start(self) -> ProcessOutput:
-        info = _exec(['docker', 'run', '--detach', '-ti', '--name', self.name, self.image])
-        return info
-
-    def _stop(self) -> ProcessOutput:
-        info = _exec(['docker', 'rm', '-f', self.name])
         return info
 
     def exec(self, command: str) -> ProcessOutput:
@@ -123,9 +119,13 @@ class DockerContainer:
             return self._duration
         return time.time() - self._start_time
 
-    def stop(self) -> None:
-        self._stop()
+    def _stop(self) -> ProcessOutput:
+        return _exec(['docker', 'rm', '-f', self.name])
+
+    def stop(self) -> ProcessOutput:
+        info = self._stop()
         self._duration = time.time() - self._start_time
+        return info
 
 
 class Stage:
@@ -145,6 +145,11 @@ class Stage:
         self.steps = [Step.factory(self.docker, step) for step in spec.get('steps')]
 
     def run(self) -> None:
+        self.docker.start()
+        self._run()
+        self.docker.stop()
+
+    def _run(self) -> None:
         self.state = Status.running
         print('---- Running Job: {} ----'.format(self.name))
         for step in self.steps:
@@ -176,7 +181,6 @@ class Step:
             return PersistStep(docker, step.get('persist_to_workspace'))
         elif step.get('attach_workspace'):
             return AttachStep(docker, step.get('attach_workspace'))
-        raise NotImplementedError('FUCKED {}'.format(step))
 
     def run(self) -> ProcessOutput:
         raise NotImplementedError()
@@ -325,11 +329,9 @@ class Workflow:
         return status_string
 
 
-def main(repo_slab: str = None, env_vars: List[str] = None, clean: bool = True, threads: int = 1) -> bool:
+def main(repo_slab: str = None, env_vars: List[str] = None, threads: int = 1) -> bool:
     parser = argparse.ArgumentParser(description='Run Zeus-CI jobs locally through docker')
     parser.add_argument('--env', type=str, nargs='+', help='K=V environment vars to pass to the test')
-    parser.add_argument('--clean', type=bool,
-                        help='dont remove {} files or docker containers'.format(DockerContainer.workspace_dir))
     parser.add_argument('--threads', type=int, help='number of worker threads(docker containers) to run concurrently')
     args = parser.parse_args()
 
@@ -337,8 +339,6 @@ def main(repo_slab: str = None, env_vars: List[str] = None, clean: bool = True, 
         threads = args.threads
 
     env_vars = env_vars.extend(args.env) if env_vars else args.env
-    if args.clean:
-        clean = args.clean
 
     if not repo_slab:
         repo_slab = None
@@ -361,7 +361,7 @@ def main(repo_slab: str = None, env_vars: List[str] = None, clean: bool = True, 
 
     clone_url = 'https://github.com/{}.git'.format(repo_slab)
     _verify_deps_exist()
-    config = _load_circle_config()
+    config = _load_repo_config()
     workflow_version = config.get('workflows').pop('version')
 
     workflows = {name: Workflow(name, config['jobs'], spec, clone_url, threads, env_vars=env_vars)
@@ -370,16 +370,8 @@ def main(repo_slab: str = None, env_vars: List[str] = None, clean: bool = True, 
     for workflow_name, workflow in workflows.items():
         workflow.run()
 
-        for stage_name, stage in workflow.stages.items():
-            if clean:
-                stage.docker.stop()
 
-        if not clean:
-            return True
-        shutil.rmtree('{}/{}'.format(DockerContainer.workspace_dir, workflow.exec_uuid))
-
-
-def _load_circle_config() -> dict:
+def _load_repo_config() -> dict:
     with open('.zeusci/config.yml') as f:
         config = yaml.load(f, yaml.Loader)
     return config

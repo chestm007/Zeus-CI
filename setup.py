@@ -20,9 +20,10 @@ setup(
     long_description=readme,
     install_requires=[
         'pyyaml',
+        'flask',
     ],
     entry_points="""
         [console_scripts]
-        zeus-ci=zeus_ci.zeus_ci:main
+        zeus-ci-runner=zeus_ci.runner:main
     """,
 )
