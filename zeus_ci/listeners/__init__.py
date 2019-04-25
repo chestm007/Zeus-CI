@@ -28,15 +28,16 @@ def make_github_webhook(app):
 
     @webhook.hook()
     def on_push(data):
-        if data.get('ref_type', '') == 'tag':
-            return
+        if data.get('ref'):
+            if data.get('ref_type', '') == 'tag':
+                return
 
-        persistence = SqliteConnection()
-        build = Build(ref=data['ref'],
-                      repo=data['repository']['full_name'],
-                      json_blob=data,
-                      status=Status.created)
-        persistence.insert_build(build)
+            persistence = SqliteConnection()
+            build = Build(ref=data['ref'],
+                          repo=data['repository']['full_name'],
+                          json_blob=data,
+                          status=Status.created)
+            persistence.insert_build(build)
 
 
 if __name__ == '__main__':
