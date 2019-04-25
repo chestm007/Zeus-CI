@@ -412,6 +412,7 @@ def _load_repo_config(repo_slab, ref) -> dict:
     """
     url_format = 'https://raw.githubusercontent.com/{repo_slab}/{ref}/.zeusci/config.yml'
     response = urllib.request.urlopen(url_format.format(repo_slab=repo_slab, ref=ref.split('/')[-1]))
+    print(response)
     if response == 200:
         config = yaml.load(response, yaml.Loader)
         return config

@@ -64,6 +64,7 @@ class BuildCoordinator:
         except KeyboardInterrupt:
             for _ in range(self.config['concurrent_builds']):
                 self.build_queue.put(None)
+            time.sleep(2)
             self.build_pool.close()
             self.build_pool.join()
             pass
