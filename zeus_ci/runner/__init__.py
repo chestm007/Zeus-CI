@@ -30,31 +30,6 @@ def status_from_value(value_):
     return status_from_value_mapping[value_]
 
 
-class State:
-    def __init__(self, value=Status.created):
-        self._value = value
-
-    def __eq__(self, other):
-        return self._value == other
-
-    def __str__(self):
-        return self._value.name
-
-    def __getattr__(self, item):
-        """
-        returns true if this state is the same as the item passed in
-        potentially confusing syntactical sugar
-
-        >>> if object.state.passing:
-        >>>     do_the_thing()
-        """
-        try:
-            status = getattr(Status, item)
-            return self._value == status
-        except AttributeError:
-            return object.__getattribute__(self, item)
-
-
 class Stateful:
     """
     this entire class is a python anti-pattern, i know - its not java i promise. I got fed up
@@ -62,13 +37,6 @@ class Stateful:
     """
     def __init__(self):
         self.state = Status.created
-
-    def __setattr__(self, key, value):
-        if key == 'state':
-            if type(value) == State:
-                object.__setattr__(self, key, value)
-            else:
-                self.state = State(getattr(Status, value.name))
 
 
 class ProcessOutput:
@@ -410,9 +378,9 @@ class Workflow(Stateful):
         if not any(s.state in (Status.created, Status.starting, Status.running) for s in self.stages.values()):
             raise StopIteration
         for stage in self.stages.values():
-            if stage.is_created:
+            if stage.state == Status.created:
                 if stage.requires:
-                    if all(r.is_passed for r in stage.requires):
+                    if all(r.state == Status.passed for r in stage.requires):
                         runnable_stages.append(stage)
                     elif any(r.state in (Status.failed, Status.skipped) for r in stage.requires):
                         self.logger.info('skipping %s', stage.name)
@@ -458,7 +426,7 @@ class Workflow(Stateful):
         """
         stage.state = Status.running
         stage.run()
-        if stage.state.passed:
+        if stage.state == Status.passed:
             return True
         return False
 
