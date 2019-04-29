@@ -2,7 +2,7 @@ import os
 import time
 
 
-tag = os.environ.get('CIRCLE_TAG')
+tag = os.environ.get('ZEUS_TAG')
 if tag:
     print(tag)
 else:

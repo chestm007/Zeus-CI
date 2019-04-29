@@ -1,7 +1,7 @@
 import argparse
 from enum import Enum
 from typing import List
-import logging
+from zeus_ci import logger
 
 import github_webhook
 from flask import Flask
@@ -12,8 +12,6 @@ from zeus_ci.persistence import Database, Build, Repo, User
 from zeus_ci.scm_reporter import Github, TokenAuth, GithubStatus
 
 WebhookProviders = Enum('WebhookProviders', 'github')
-
-logger = logging.getLogger(__name__)
 
 
 def start(host, port, providers: List[WebhookProviders],
@@ -53,14 +51,14 @@ def make_github_webhook(app, database):
             try:
                 user = session.query(User).filter_by(username=username).one()
             except NoResultFound:
-                logging.debug('adding new user: %s', username)
+                logger.debug('adding new user: %s', username)
                 user = User(username=username)
                 session.add(user)
 
             try:
                 repo = session.query(Repo).filter_by(name=repo_name).one()
             except NoResultFound:
-                logging.debug('adding new repo: %s', username)
+                logger.debug('adding new repo: %s', username)
                 repo = Repo(name=repo_name,
                             username=user.username,
                             scm='github')
@@ -84,8 +82,8 @@ def main():
     parser = argparse.ArgumentParser(description='Webhook listener for Zeus-CI')
     parser.add_argument('--listen-address', type=str, default='0.0.0.0')
     parser.add_argument('--port', type=int, default=4230)
-    parser.add_argument('--sqlalchemy-protocol', type=str, default='sqlite')
-    parser.add_argument('--sqlalchemy-protocol-args', type=str, default='/tmp/zeus-ci.db')
+    parser.add_argument('--sqlalchemy-protocol', type=str)
+    parser.add_argument('--sqlalchemy-protocol-args', type=str)
     args = parser.parse_args()
 
     sqlalchemy_args = dict(

@@ -7,8 +7,8 @@ from zeus_ci.runner import Status
 
 
 @click.group()
-@click.option('--sqlalchemy-protocol', type=str, default='sqlite')
-@click.option('--sqlalchemy-protocol-args', type=str, default='/tmp/zeus-ci.db')
+@click.option('--sqlalchemy-protocol', type=str)
+@click.option('--sqlalchemy-protocol-args', type=str)
 @click.pass_context
 def main(ctx, sqlalchemy_protocol, sqlalchemy_protocol_args):
     ctx.ensure_object(dict)

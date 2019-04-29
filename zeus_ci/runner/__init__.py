@@ -12,7 +12,8 @@ from typing import Dict, List
 
 import yaml
 import uuid
-import logging
+
+from zeus_ci import logger
 
 
 Status = Enum('status', 'created starting running passed failed skipped error')
@@ -81,8 +82,6 @@ class DockerContainer:
                  env_vars: List[str] = None,
                  ref: str = None):
 
-        self.logger = logging.getLogger(self.__class__.__name__)
-
         self._start_time = time.time()
         self._duration = None
         self.failed = False
@@ -133,7 +132,7 @@ class DockerContainer:
                       '{}/{}'.format(self.workspace_dir, self.exec_uuid)])
         if info.returncode == 0:
             return True
-        self.logger.error('persist to workspace failed: %s', info)
+        logger.error('persist to workspace failed: %s', info)
 
     def copy_workspace_to_container(self, dest: str) -> bool:
         self.exec('mkdir -p {}'.format(dest))
@@ -142,7 +141,7 @@ class DockerContainer:
             file_path = os.path.join(self.workspace_dir, self.exec_uuid, file)
             info = _exec(['docker', 'cp', file_path, '{}:{}'.format(self.name, dest)])
             if not info:
-                self.logger.error('attach workspace failed: %s', info)
+                logger.error('attach workspace failed: %s', info)
                 return False
         return True
 
@@ -174,8 +173,6 @@ class Stage(Stateful):
 
         super().__init__()
 
-        self.logger = logging.getLogger(self.__class__.__name__)
-
         self.name = name
         self.requires = requires
         self.ref = ref
@@ -203,14 +200,14 @@ class Stage(Stateful):
         skip = False
         if self.run_condition.get('branch'):
             if not re.search(self.run_condition['branch'], self.branch):
-                self.logger.debug('skipping %s because %s doesnt match condition %s',
-                                  self.name, self.branch, self.run_condition['branch'])
+                logger.debug('skipping %s because %s doesnt match condition %s',
+                             self.name, self.branch, self.run_condition['branch'])
                 self.state = Status.skipped
                 skip = True
         if self.run_condition.get('tag'):
             if not re.search(self.run_condition['tag'], self.tag):
-                self.logger.debug('skipping %s because %s doesnt match condition %s',
-                                  self.name, self.tag, self.run_condition['tag'])
+                logger.debug('skipping %s because %s doesnt match condition %s',
+                             self.name, self.tag, self.run_condition['tag'])
                 self.state = Status.skipped
                 skip = True
 
@@ -222,21 +219,20 @@ class Stage(Stateful):
 
     def _run(self) -> None:
         self.state = Status.running
-        self.logger.info('---- Running Job: %s ----', self.name)
+        logger.info('---- Running Job: %s ----', self.name)
         for step in self.steps:
-            self.logger.info('Executing Step: %s', step)
+            logger.info('Executing Step: %s', step)
             output = step.run()
             if not output:
-                self.logger.error('Job[%s]\n%s', self.name, output.output)
+                logger.error('Job[%s]\n%s', self.name, output.output)
                 self.state = Status.failed
                 return
-        self.logger.info('Job (%s) Passed in %.2f seconds', self.name, self.docker.duration)
+        logger.info('Job (%s) Passed in %.2f seconds', self.name, self.docker.duration)
         self.state = Status.passed
 
 
 class Step:
     def __init__(self, docker: DockerContainer, *args):
-        self.logger = logging.getLogger(self.__class__.__name__)
         self.docker = docker
         self.init(*args)
 
@@ -315,13 +311,13 @@ def _setup() -> None:
         try:
             _exec([binary])
         except FileNotFoundError:
-            logging.error('%s not installed', binary)
+            logger.error('%s not installed', binary)
 
     try:
         os.mkdir(DockerContainer.workspace_dir)
     except FileExistsError:
-        logging.info('workspace directory already exists at %s - this '
-                     'is harmless providing it\'s what you wanted', DockerContainer.workspace_dir)
+        logger.info('workspace directory already exists at %s - this '
+                    'is harmless providing it\'s what you wanted', DockerContainer.workspace_dir)
         pass
 
 
@@ -335,8 +331,6 @@ class Workflow(Stateful):
                  ref: str = None):
 
         super().__init__()
-
-        self.logger = logging.getLogger(self.__class__.__name__)
 
         self.exec_uuid = uuid.uuid4().hex
         self.num_threads = num_threads
@@ -383,7 +377,7 @@ class Workflow(Stateful):
                     if all(r.state == Status.passed for r in stage.requires):
                         runnable_stages.append(stage)
                     elif any(r.state in (Status.failed, Status.skipped) for r in stage.requires):
-                        self.logger.info('skipping %s', stage.name)
+                        logger.info('skipping %s', stage.name)
                         stage.skipped()
                 else:
                     runnable_stages.append(stage)
@@ -410,7 +404,7 @@ class Workflow(Stateful):
         pool.join()
         results = [r.get() for r in pool_results]
 
-        self.logger.info(self.status_string)
+        logger.info(self.status_string)
 
         for status in (Status.error, Status.failed):
             if any(map(lambda r: r == status, results)):
@@ -444,7 +438,7 @@ class Workflow(Stateful):
         return status_string
 
 
-def main(repo_slab: str = None, env_vars: List[str] = None, threads: int = 1, ref=None, branch=None) -> bool:
+def main(repo_slab: str = None, env_vars: List[str] = None, threads: int = 1, ref=None) -> bool:
     if not any([repo_slab, env_vars, threads, ref]):
         parser = argparse.ArgumentParser(description='Run Zeus-CI jobs locally through docker')
         parser.add_argument('--env', type=str, nargs='+', help='K=V environment vars to pass to the test')
@@ -465,7 +459,7 @@ def main(repo_slab: str = None, env_vars: List[str] = None, threads: int = 1, re
             repo_slab = repo_slab_of_cwd()
 
             if not repo_slab:
-                logging.error('not in the root directory of a git repository, exiting')
+                logger.error('not in the root directory of a git repository, exiting')
                 sys.exit(1)
 
     _setup()
@@ -488,7 +482,7 @@ def main(repo_slab: str = None, env_vars: List[str] = None, threads: int = 1, re
         try:
             results.append(workflow.run())
         except Exception as e:
-            logging.error('%s: %s', workflow_name, e)
+            logger.error('%s: %s', workflow_name, e)
 
     for status in (Status.error, Status.failed):
         if any(map(lambda r: r == status, results)):

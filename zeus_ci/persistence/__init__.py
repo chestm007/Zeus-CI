@@ -1,11 +1,11 @@
-import logging
-
 from sqlalchemy import Column, Integer, String, JSON, Enum, create_engine, ForeignKey, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship, backref
 from sqlalchemy.orm.attributes import flag_modified
 
 from zeus_ci.runner import Status
+
+from zeus_ci import config
 
 
 Base = declarative_base()
@@ -74,8 +74,9 @@ class User(Base):
 
 class Database:
     def __init__(self, *_, protocol, protocol_args):
-        self.logger = logging.getLogger(self.__class__.__name__)
-        self.engine = create_engine('{}:///{}'.format(protocol, protocol_args))
+        db_config = config.database
+        self.engine = create_engine('{}:///{}'.format(protocol or db_config.get('protocol', 'sqlite'),
+                                                      protocol_args or db_config.get('args', '/tmp/zeus-ci.db')))
         self.get_session = sessionmaker(bind=self.engine)
         for obj in (Build, Repo, User):
             obj.__table__.create(bind=self.engine, checkfirst=True)

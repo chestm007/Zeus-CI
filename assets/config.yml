@@ -1,0 +1,16 @@
+#place this file in '/etc/zeus-ci/' and edit to suit.
+
+#loglevel:
+
+#database:
+#  protocol:
+#  args:
+
+#listener:
+#  listen_address:
+#  port:
+
+#build_coordinator:
+#  runner_threads:
+#  concurrent_builds:
+#  build_poll_sec:
