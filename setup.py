@@ -21,9 +21,14 @@ setup(
     install_requires=[
         'pyyaml',
         'flask',
+        'sqlalchemy',
+        'pygithub'
     ],
     entry_points="""
         [console_scripts]
         zeus-ci-runner=zeus_ci.runner:main
+        zeus-ci-buildcoordinator=zeus_ci.build_coordinator:main
+        zeus-ci-listener=zeus_ci.listeners:main
+        zeus-cli=zeus_ci.cli:main
     """,
 )

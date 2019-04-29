@@ -1,68 +1,84 @@
-import json
-import os
-import sqlite3
+import logging
 
-from zeus_ci.runner import status_from_name, Status
+from sqlalchemy import Column, Integer, String, JSON, Enum, create_engine, ForeignKey, Boolean
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker, relationship, backref
+from sqlalchemy.orm.attributes import flag_modified
 
-
-class Build:
-    def __init__(self, repo, ref, json_blob, status, build_id=None):
-        self.id = build_id
-        self.repo = repo
-        self.ref = ref
-        self.json = json.loads(json_blob) if type(json_blob) == str else json_blob
-        self.status = status_from_name(status) if type(status) == str else status
+from zeus_ci.runner import Status
 
 
-class SqliteConnection:
-    def __init__(self, db_filename='/tmp/zeus-ci.db'):
-        db_is_new = db_filename == ':memory:' or not os.path.exists(db_filename)
-        self.conn = sqlite3.connect(db_filename)
-        if db_is_new:
-            self._create_schema()
+Base = declarative_base()
 
-    def _create_schema(self):
-        schema = """
-        CREATE TABLE builds (
-            id              integer PRIMARY KEY autoincrement NOT NULL,
-            repo            text NOT NULL,
-            ref             text NOT NULL,
-            json_blob       text NOT NULL,
-            status          text NOT NULL
-        );
-        """
-        self.conn.execute(schema)
 
-    def insert_build(self, build):
-        query = """
-        INSERT INTO builds (repo, ref, json_blob, status)
-        VALUES (:repo, :ref, :json_blob, :status);
-        """
-        self.conn.execute(query, dict(repo=build.repo,
-                                      ref=build.ref,
-                                      json_blob=json.dumps(build.json),
-                                      status=build.status.name))
-        self.conn.commit()
+class Build(Base):
+    __tablename__ = 'builds'
 
-    def update_build(self, id, status: Status):
-        query = """
-        UPDATE builds 
-        SET status = :status 
-        WHERE id = :id
-        """
-        self.conn.execute(query, dict(id=id, status=status.name))
-        self.conn.commit()
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    repo_name = Column(String(50), ForeignKey('repo.name'))
+    ref = Column(String(50), nullable=False)
+    commit = Column(String(50), nullable=False)
+    json = Column(JSON(50000))
+    status = Column(Enum(Status), nullable=False)
 
-    def get_builds(self, statuses: Status = None, build_id: int = None):
-        query = """
-        SELECT repo, ref, json_blob, status, id
-        FROM builds
-        """
-        if build_id:
-            query += "WHERE id = {}".format(build_id)
-        if statuses:
-            query += "WHERE status in ('{}')".format('\', \''.join(s.name for s in statuses))
+    repo = relationship('Repo', backref=backref('builds'))
 
-        results = self.conn.execute(query)
-        return list(map(lambda r: Build(*r), results.fetchall()))
+    def __repr__(self):
+        return '%s(id: %s, repo: %s, ref: %s, status: %s)' % (
+            self.__class__.__name__, self.id, self.repo, self.ref, self.status.name)
 
+
+class Repo(Base):
+    """
+    env_vars:
+        schema: [{<key>: <value>}, ...]
+    """
+    __tablename__ = 'repo'
+
+    name = Column(String(50), primary_key=True, nullable=False)
+    scm = Column(String(50), nullable=False)
+    env_vars = Column(JSON(5000), default=[])
+    username = Column(String(50), ForeignKey('user.username'))
+
+    user = relationship('User', backref=backref('repositories'))
+
+    def __repr__(self):
+        return '%s(name: %s)' % (self.__class__.__name__, self.name)
+
+    def shell_ready_envvars(self):
+        if self.env_vars:
+            return ['{}={}'.format(k, v) for var in self.env_vars for k, v in var.items()]
+        return []
+
+    def add_envvar(self, var):
+        if not self.env_vars:
+            self.env_vars = []
+        self.env_vars.append(var)
+        flag_modified(self, 'env_vars')
+
+
+class User(Base):
+    __tablename__ = 'user'
+
+    username = Column(String(50), primary_key=True, nullable=False)
+    share_env_vars_with_forks = Column(Boolean(), default=False)
+    share_env_vars_with_branches = Column(Boolean(), default=True)
+    token = Column(String(50))
+
+    def __repr__(self):
+        return '%s(username: %s, token: %s, share_env_with_forks: %s, share_env_with_branches: %s)' % (
+            self.__class__.__name__, self.username, self.token,
+            self.share_env_vars_with_forks, self.share_env_vars_with_branches
+        )
+
+
+class Database:
+    def __init__(self, *_, protocol, protocol_args):
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.engine = create_engine('{}:///{}'.format(protocol, protocol_args))
+        self.get_session = sessionmaker(bind=self.engine)
+        for obj in (Build, Repo, User):
+            obj.__table__.create(bind=self.engine, checkfirst=True)
+
+    def __call__(self, *args, **kwargs):
+        return self.get_session()
