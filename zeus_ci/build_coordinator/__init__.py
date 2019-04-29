@@ -105,7 +105,7 @@ class BuildCoordinator:
             while True:
                 if not self.build_queue.empty():
                     continue
-                time.sleep(10)
+                time.sleep(self.config['build_poll_sec'])
 
                 runnable_builds = self._runnable_builds
                 self.logger.debug('runnable_builds: %s', runnable_builds)
@@ -128,6 +128,8 @@ def main():
     parser.add_argument('--sqlalchemy-protocol-args', type=str, default='/tmp/zeus-ci.db')
     parser.add_argument('--runner-threads', type=int)
     parser.add_argument('--concurrent-builds', type=int)
+    parser.add_argument('--build-poll-sec', type=int, help='interval between database polling for new builds',
+                        default=10)
     args = parser.parse_args()
     sqlalchemy_args = dict(
         protocol=args.sqlalchemy_protocol,
@@ -135,7 +137,8 @@ def main():
     )
 
     config = dict(
-        sqlalchemy_args=sqlalchemy_args
+        sqlalchemy_args=sqlalchemy_args,
+        build_poll_sec=args.build_poll_sec
     )
     if args.runner_threads:
         logging.debug('setting runner threads to %s', args.runner_threads)
