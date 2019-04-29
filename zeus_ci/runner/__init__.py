@@ -16,6 +16,8 @@ import logging
 
 
 Status = Enum('status', 'created starting running passed failed skipped error')
+
+
 status_from_name_mapping = {s.name: s for s in Status}
 status_from_value_mapping = {s.value: s for s in Status}
 
@@ -28,53 +30,45 @@ def status_from_value(value_):
     return status_from_value_mapping[value_]
 
 
+class State:
+    def __init__(self, value=Status.created):
+        self._value = value
+
+    def __eq__(self, other):
+        return self._value == other
+
+    def __str__(self):
+        return self._value.name
+
+    def __getattr__(self, item):
+        """
+        returns true if this state is the same as the item passed in
+        potentially confusing syntactical sugar
+
+        >>> if object.state.passing:
+        >>>     do_the_thing()
+        """
+        try:
+            status = getattr(Status, item)
+            return self._value == status
+        except AttributeError:
+            return object.__getattribute__(self, item)
+
+
 class Stateful:
     """
     this entire class is a python anti-pattern, i know - its not java i promise. I got fed up
     with confusing state and status
     """
     def __init__(self):
-        self._state = Status.created
+        self.state = Status.created
 
-    @property
-    def state(self):
-        """
-        entirely unrequired, but it'll error if you try and modify state directly - and thats
-        precisely what i want
-        """
-        return self._state
-
-    @property
-    def is_passed(self):
-        return self._state == Status.passed
-
-    @property
-    def is_failed(self):
-        return self._state == Status.failed
-
-    @property
-    def is_skipped(self):
-        return self._state == Status.skipped
-
-    @property
-    def is_running(self):
-        return self._state == Status.skipped
-
-    @property
-    def is_created(self):
-        return self._state == Status.created
-
-    def passed(self):
-        self._state = Status.passed
-
-    def failed(self):
-        self._state = Status.failed
-
-    def skipped(self):
-        self._state = Status.skipped
-
-    def running(self):
-        self._state = Status.running
+    def __setattr__(self, key, value):
+        if key == 'state':
+            if type(value) == State:
+                object.__setattr__(self, key, value)
+            else:
+                self.state = State(getattr(Status, value.name))
 
 
 class ProcessOutput:
@@ -243,13 +237,13 @@ class Stage(Stateful):
             if not re.search(self.run_condition['branch'], self.branch):
                 self.logger.debug('skipping %s because %s doesnt match condition %s',
                                   self.name, self.branch, self.run_condition['branch'])
-                self.skipped()
+                self.state = Status.skipped
                 skip = True
         if self.run_condition.get('tag'):
             if not re.search(self.run_condition['tag'], self.tag):
                 self.logger.debug('skipping %s because %s doesnt match condition %s',
                                   self.name, self.tag, self.run_condition['tag'])
-                self.skipped()
+                self.state = Status.skipped
                 skip = True
 
         if not skip:
@@ -259,17 +253,17 @@ class Stage(Stateful):
         return self.state
 
     def _run(self) -> None:
-        self.running()
+        self.state = Status.running
         self.logger.info('---- Running Job: %s ----', self.name)
         for step in self.steps:
             self.logger.info('Executing Step: %s', step)
             output = step.run()
             if not output:
                 self.logger.error('Job[%s]\n%s', self.name, output.output)
-                self.failed()
+                self.state = Status.failed
                 return
         self.logger.info('Job (%s) Passed in %.2f seconds', self.name, self.docker.duration)
-        self.passed()
+        self.state = Status.passed
 
 
 class Step:
@@ -431,7 +425,7 @@ class Workflow(Stateful):
         self.stages[stage.name] = stage
 
     def run(self) -> None:
-        self.running()
+        self.state = Status.running
         pool = ThreadPool(self.num_threads)
         pool_results = []
 
@@ -462,9 +456,9 @@ class Workflow(Stateful):
         runs the Stage passed in
         returns True if Stage passed, or False if it  fails
         """
-        stage.running()
+        stage.state = Status.running
         stage.run()
-        if stage._state == Status.passed:
+        if stage.state.passed:
             return True
         return False
 
