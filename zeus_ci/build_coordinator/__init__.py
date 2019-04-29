@@ -48,11 +48,11 @@ class BuildCoordinator:
 
                 # TODO: this must be called as soon as possible due to a race condition with populating the queue
                 build.status = Status.starting
+                session.commit()
                 github = Github(TokenAuth(build.repo.user.token))
                 github.update_status(build, GithubStatus.pending)
 
                 try:
-                    session.commit()
                     ref = None
                     env_vars = build.repo.shell_ready_envvars()
 
@@ -85,9 +85,11 @@ class BuildCoordinator:
                     raise e
 
         except Exception as e:
-            self.logger.error('error from worker thread: %s', e)
+            self.logger.error('error from worker thread: %s', exc_info=True)
             raise e
 
+        except KeyboardInterrupt:
+            pass
         finally:
             session.close()
 
@@ -102,9 +104,12 @@ class BuildCoordinator:
             self.logger.info('Entering main loop')
             while True:
                 if not self.build_queue.empty():
-                    time.sleep(10)
+                    continue
+                time.sleep(10)
 
-                for build in reversed(self._runnable_builds):
+                runnable_builds = self._runnable_builds
+                self.logger.debug('runnable_builds: %s', runnable_builds)
+                for build in reversed(runnable_builds):
                     self.build_queue.put(build.id)
         except KeyboardInterrupt:
             self.logger.info('recieved exit command, closing build processes.')

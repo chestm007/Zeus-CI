@@ -241,10 +241,14 @@ class Stage(Stateful):
         skip = False
         if self.run_condition.get('branch'):
             if not re.search(self.run_condition['branch'], self.branch):
+                self.logger.debug('skipping %s because %s doesnt match condition %s',
+                                  self.name, self.branch, self.run_condition['branch'])
                 self.skipped()
                 skip = True
         if self.run_condition.get('tag'):
             if not re.search(self.run_condition['tag'], self.tag):
+                self.logger.debug('skipping %s because %s doesnt match condition %s',
+                                  self.name, self.tag, self.run_condition['tag'])
                 self.skipped()
                 skip = True
 
@@ -478,7 +482,7 @@ class Workflow(Stateful):
         return status_string
 
 
-def main(repo_slab: str = None, env_vars: List[str] = None, threads: int = 1, ref=None) -> bool:
+def main(repo_slab: str = None, env_vars: List[str] = None, threads: int = 1, ref=None, branch=None) -> bool:
     if not any([repo_slab, env_vars, threads, ref]):
         parser = argparse.ArgumentParser(description='Run Zeus-CI jobs locally through docker')
         parser.add_argument('--env', type=str, nargs='+', help='K=V environment vars to pass to the test')
@@ -509,7 +513,11 @@ def main(repo_slab: str = None, env_vars: List[str] = None, threads: int = 1, re
     if not config:
         return False
 
-    config['workflows'].pop('version')
+    try:
+        config['workflows'].pop('version')
+    except KeyError:
+        pass
+
     workflows = {name: Workflow(name, config['jobs'], spec, clone_url, threads, env_vars=env_vars, ref=ref)
                  for name, spec in config['workflows'].items()}
 
