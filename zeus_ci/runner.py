@@ -5,30 +5,16 @@ import subprocess
 import sys
 import time
 import urllib.request
-from enum import Enum
+import urllib.error
 from multiprocessing.pool import ThreadPool
 from subprocess import PIPE
 from typing import Dict, List
 
+import rpyc
 import yaml
 import uuid
 
-from zeus_ci import logger
-
-
-Status = Enum('status', 'created starting running passed failed skipped error')
-
-
-status_from_name_mapping = {s.name: s for s in Status}
-status_from_value_mapping = {s.value: s for s in Status}
-
-
-def status_from_name(name_):
-    return status_from_name_mapping[name_]
-
-
-def status_from_value(value_):
-    return status_from_value_mapping[value_]
+from zeus_ci import logger, config, Status
 
 
 class Stateful:
@@ -94,12 +80,22 @@ class DockerContainer:
         self.name = '{}-{}'.format(str(name), self.exec_uuid)
         self.stage_name = str(name)
         self.env_vars = env_vars or []
+        for env_var in self.env_vars:
+            if env_var.startswith('ZEUS_USERNAME='):
+                self.username = env_var.split('ZEUS_USERNAME=')[-1]
         self.ref = ref
+
+        self.resource_allocator = rpyc.connect(config.resource_allocator.get('address', 'localhost'),
+                                               config.resource_allocator.get('port', 18861))
 
         self.env_vars.append('ZEUS_JOB={}'.format(self.stage_name))
         self.w_dir = None
 
     def start(self) -> ProcessOutput:
+        logger.debug('starting docker container')
+        self.resource_allocator.root.request_container(self.username)
+        logger.debug('got "good to go" from resource allocator')
+
         info = _exec(['docker', 'run', '--detach', '-ti', '--name', self.name, self.image])
         if self._working_directory and self._working_directory.startswith('~'):
             tilda = self.exec('echo $HOME').stdout.strip('\n')
@@ -152,6 +148,7 @@ class DockerContainer:
         return time.time() - self._start_time
 
     def _stop(self) -> ProcessOutput:
+        self.resource_allocator.root.return_container(self.username)
         return _exec(['docker', 'rm', '-f', self.name])
 
     def stop(self) -> ProcessOutput:
@@ -179,7 +176,10 @@ class Stage(Stateful):
         self.tag = None
         self.branch = None
 
-        self.env_vars = env_vars
+        if not env_vars:
+            env_vars = []
+        self.env_vars = list(env_vars)
+        self.env_vars.append('ZEUS_JOB={}'.format(self.name))
         for env_var in self.env_vars:
             if env_var.startswith('ZEUS_TAG='):
                 self.tag = env_var.split('ZEUS_TAG=', 1)[-1]
@@ -219,15 +219,21 @@ class Stage(Stateful):
 
     def _run(self) -> None:
         self.state = Status.running
-        logger.info('---- Running Job: %s ----', self.name)
-        for step in self.steps:
-            logger.info('Executing Step: %s', step)
-            output = step.run()
-            if not output:
-                logger.error('Job[%s]\n%s', self.name, output.output)
-                self.state = Status.failed
-                return
-        logger.info('Job (%s) Passed in %.2f seconds', self.name, self.docker.duration)
+        try:
+            logger.info('---- Running Job: %s ----', self.name)
+            logger.debug('exec_uuid: %s, env_vars: %s', self.exec_uuid, self.env_vars)
+            for step in self.steps:
+                logger.info('Executing Step: %s', step)
+                output = step.run()
+                if not output:
+                    logger.error('Job[%s]\n%s', self.name, output.output)
+                    self.state = Status.failed
+                    return
+            logger.info('Job (%s) Passed in %.2f seconds', self.name, self.docker.duration)
+        except Exception as e:
+            self.docker.stop()
+            self.state = Status.failed
+            raise e
         self.state = Status.passed
 
 
@@ -378,7 +384,7 @@ class Workflow(Stateful):
                         runnable_stages.append(stage)
                     elif any(r.state in (Status.failed, Status.skipped) for r in stage.requires):
                         logger.info('skipping %s', stage.name)
-                        stage.skipped()
+                        stage.state = Status.skipped
                 else:
                     runnable_stages.append(stage)
         return runnable_stages
@@ -474,6 +480,8 @@ def main(repo_slab: str = None, env_vars: List[str] = None, threads: int = 1, re
     except KeyError:
         pass
 
+    env_vars.append('ZEUS_USERNAME={}'.format(repo_slab.split('/')[0]))
+
     workflows = {name: Workflow(name, config['jobs'], spec, clone_url, threads, env_vars=env_vars, ref=ref)
                  for name, spec in config['workflows'].items()}
 
@@ -515,7 +523,12 @@ def _download_repo_build_config(repo_slab, ref) -> dict:
     https://raw.githubusercontent.com/chestm007/Zeus-CI/test-tag/.zeusci/config.yml
     """
     url_format = 'https://raw.githubusercontent.com/{repo_slab}/{ref}/.zeusci/config.yml'
-    response = urllib.request.urlopen(url_format.format(repo_slab=repo_slab, ref=ref.split('/')[-1]))
+    try:
+        response = urllib.request.urlopen(url_format.format(repo_slab=repo_slab, ref=ref.split('/')[-1]))
+    except urllib.error.HTTPError:
+        logger.error('couldnt fetch build config')
+        return
+
     if response.status == 200:
         config = yaml.load(response, yaml.Loader)
         return config

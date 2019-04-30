@@ -1,6 +1,10 @@
 #place this file in '/etc/zeus-ci/' and edit to suit.
 
-#loglevel:
+#logging:
+#  level:
+#  filepath:
+#  use_journal:
+#  format:
 
 #database:
 #  protocol:
@@ -14,3 +18,7 @@
 #  runner_threads:
 #  concurrent_builds:
 #  build_poll_sec:
+
+#resource_allocator:
+#  address:
+#  port:

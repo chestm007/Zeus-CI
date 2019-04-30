@@ -1,8 +1,6 @@
 from collections import namedtuple
 from enum import Enum
 
-from github import Github as PyGithub
-
 from zeus_ci.persistence import Build
 
 TokenAuth = namedtuple('TokenAuth', ('access_token', ))
@@ -21,6 +19,7 @@ class Github:
     }  # TODO: consider scm agnostic global map
 
     def __init__(self, auth: namedtuple):
+        from github import Github as PyGithub
         self.client = PyGithub(*auth)
 
     def update_status(self, build: Build, status: GithubStatus):

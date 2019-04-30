@@ -3,7 +3,7 @@ import json
 import click
 
 from zeus_ci.persistence import Database, Build, User, Repo
-from zeus_ci.runner import Status
+from zeus_ci import Status
 
 
 @click.group()

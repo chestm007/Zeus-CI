@@ -1,11 +1,9 @@
-from sqlalchemy import Column, Integer, String, JSON, Enum, create_engine, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, String, JSON, Enum, create_engine, ForeignKey, Boolean, types
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship, backref
+from sqlalchemy.orm import sessionmaker, relationship, backref, Session
 from sqlalchemy.orm.attributes import flag_modified
 
-from zeus_ci.runner import Status
-
-from zeus_ci import config
+from zeus_ci import config, Status
 
 
 Base = declarative_base()
@@ -61,6 +59,7 @@ class User(Base):
     __tablename__ = 'user'
 
     username = Column(String(50), primary_key=True, nullable=False)
+    container_limit = Column(Integer(), default=4)
     share_env_vars_with_forks = Column(Boolean(), default=False)
     share_env_vars_with_branches = Column(Boolean(), default=True)
     token = Column(String(50))
@@ -72,8 +71,23 @@ class User(Base):
         )
 
 
+def _session__enter__(self):
+    return self
+
+
+def _session__exit__(self, *args, **kwargs):
+    del args
+    del kwargs
+    self.commit()
+    self.close()
+
+
+Session.__enter__ = _session__enter__
+Session.__exit__ = _session__exit__
+
+
 class Database:
-    def __init__(self, *_, protocol, protocol_args):
+    def __init__(self, *_, protocol=None, protocol_args=None):
         db_config = config.database
         self.engine = create_engine('{}:///{}'.format(protocol or db_config.get('protocol', 'sqlite'),
                                                       protocol_args or db_config.get('args', '/tmp/zeus-ci.db')))

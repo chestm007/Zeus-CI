@@ -24,11 +24,18 @@ setup(
         'sqlalchemy',
         'pygithub'
     ],
+    extras_require={
+        'journal_logging': ['python-systemd'],
+        'github_status_reporting': ['github'],
+        'github_webhook_listener': ['github-webhook'],
+        'resource_allocator': ['rpyc'],
+    },
     entry_points="""
         [console_scripts]
         zeus-ci-runner=zeus_ci.runner:main
         zeus-ci-buildcoordinator=zeus_ci.build_coordinator:main
         zeus-ci-listener=zeus_ci.listeners:main
+        zeus-ci-resource-allocator=zeus_ci.resource_allocator:main
         zeus-cli=zeus_ci.cli:main
     """,
 )

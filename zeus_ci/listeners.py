@@ -3,11 +3,10 @@ from enum import Enum
 from typing import List
 from zeus_ci import logger
 
-import github_webhook
 from flask import Flask
 from sqlalchemy.orm.exc import NoResultFound
 
-from zeus_ci.runner import Status
+from zeus_ci import Status
 from zeus_ci.persistence import Database, Build, Repo, User
 from zeus_ci.scm_reporter import Github, TokenAuth, GithubStatus
 
@@ -29,12 +28,13 @@ def start(host, port, providers: List[WebhookProviders],
 
     @app.route('/')
     def root():
-        return ''
+        return
 
     app.run(host=host, port=port)
 
 
 def make_github_webhook(app, database):
+    import github_webhook
     webhook = github_webhook.Webhook(app, endpoint='/github-webhook/')
 
     @webhook.hook()
@@ -43,39 +43,39 @@ def make_github_webhook(app, database):
         if data.get('ref'):
             if data.get('ref_type', '') == 'tag':
                 return
-            session = database.get_session()
+            with database.get_session() as session:
 
-            repo_name = data['repository']['full_name']
-            username = data['sender']['login']
+                repo_name = data['repository']['full_name']
+                username = data['sender']['login']
 
-            try:
-                user = session.query(User).filter_by(username=username).one()
-            except NoResultFound:
-                logger.debug('adding new user: %s', username)
-                user = User(username=username)
-                session.add(user)
+                try:
+                    user = session.query(User).filter_by(username=username).one()
+                except NoResultFound:
+                    logger.debug('adding new user: %s', username)
+                    user = User(username=username)
+                    session.add(user)
 
-            try:
-                repo = session.query(Repo).filter_by(name=repo_name).one()
-            except NoResultFound:
-                logger.debug('adding new repo: %s', username)
-                repo = Repo(name=repo_name,
-                            username=user.username,
-                            scm='github')
-                session.add(repo)
+                try:
+                    repo = session.query(Repo).filter_by(name=repo_name).one()
+                except NoResultFound:
+                    logger.debug('adding new repo: %s', username)
+                    repo = Repo(name=repo_name,
+                                username=user.username,
+                                scm='github')
+                    session.add(repo)
 
-            build = Build(ref=data['ref'],
-                          repo_name=repo.name,
-                          commit=data['after'],
-                          json=data,
-                          status=Status.created)
+                build = Build(ref=data['ref'],
+                              repo_name=repo.name,
+                              commit=data['after'],
+                              json=data,
+                              status=Status.created)
 
-            repo.builds.append(build)
+                repo.builds.append(build)
 
-            session.commit()
+                session.commit()
 
-            github = Github(TokenAuth(user.token))
-            github.update_status(build, GithubStatus.pending)
+                github = Github(TokenAuth(user.token))
+                github.update_status(build, GithubStatus.pending)
 
 
 def main():

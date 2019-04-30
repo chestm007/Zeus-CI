@@ -26,8 +26,10 @@ class Config:
                 continue
 
         if config:
-            self.database = config.get('database')
-            self.listener = config.get('listener')
-            self.loglevel = config.get('loglevel')
-            self.build_coordinator = config.get('build_coordinator')
+            self.database = config.get('database', {})
+            self.listener = config.get('listener', {})
+            self.loglevel = config.get('loglevel', {})
+            self.build_coordinator = config.get('build_coordinator', {})
+            self.logging = config.get('loggging', {})
+            self.resource_allocator = config.get('resource_allocator', {})
             self.loaded = True
