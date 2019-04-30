@@ -92,7 +92,7 @@ class DockerContainer:
         self.w_dir = None
 
     def start(self) -> ProcessOutput:
-        logger.debug('starting docker container')
+        logger.debug('waiting for free docker container allocation')
         self.resource_allocator.root.request_container(self.username)
         logger.debug('got "good to go" from resource allocator')
 
