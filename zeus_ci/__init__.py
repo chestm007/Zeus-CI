@@ -21,7 +21,6 @@ def status_from_value(value_):
     return status_from_value_mapping[value_]
 
 
-
 logger = logging.getLogger(__name__)
 loglevel = os.getenv('ZEUS_CI_LOGLEVEL') or config.logging.get('level', 'info')
 logformat = config.logging.get('format', '%(asctime)s: %(name)s: %(threadName)s: %(message)s')
@@ -54,3 +53,6 @@ logger.debug('setting loglevel to %s', loglevel.upper())
 
 if not config.loaded:
     logger.debug('config file not found, proceeding without')
+
+github_logger = logging.getLogger('github.Requester')
+github_logger.setLevel(logging.INFO)

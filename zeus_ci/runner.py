@@ -91,9 +91,18 @@ class DockerContainer:
         self.env_vars.append('ZEUS_JOB={}'.format(self.stage_name))
         self.w_dir = None
 
+    def __enter__(self):
+        self.start()
+        return self
+
     def start(self) -> ProcessOutput:
         logger.debug('waiting for free docker container allocation')
-        self.resource_allocator.root.request_container(self.username)
+
+        while True:
+            if self.resource_allocator.root.request_container(self.username):
+                break
+            time.sleep(1)
+
         logger.debug('got "good to go" from resource allocator')
 
         info = _exec(['docker', 'run', '--detach', '-ti', '--name', self.name, self.image])
@@ -147,6 +156,9 @@ class DockerContainer:
             return self._duration
         return time.time() - self._start_time
 
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.stop()
+
     def _stop(self) -> ProcessOutput:
         self.resource_allocator.root.return_container(self.username)
         return _exec(['docker', 'rm', '-f', self.name])
@@ -190,51 +202,46 @@ class Stage(Stateful):
 
         self.exec_uuid = exec_uuid
         self.clone_url = clone_url
-        self.steps = spec.get('steps')
+        self.spec = spec
         self.working_directory = spec.get('working_directory')
-        self.docker = DockerContainer(self.name, spec.get('docker')[0].get('image'), self.exec_uuid,
-                                      self.clone_url, self.working_directory, self.env_vars, ref=self.ref)
-        self.steps = [Step.factory(self.docker, step) for step in spec.get('steps')]
 
     def run(self) -> None:
-        skip = False
-        if self.run_condition.get('branch'):
-            if not re.search(self.run_condition['branch'], self.branch):
-                logger.debug('skipping %s because %s doesnt match condition %s',
-                             self.name, self.branch, self.run_condition['branch'])
-                self.state = Status.skipped
-                skip = True
-        if self.run_condition.get('tag'):
-            if not re.search(self.run_condition['tag'], self.tag):
-                logger.debug('skipping %s because %s doesnt match condition %s',
-                             self.name, self.tag, self.run_condition['tag'])
-                self.state = Status.skipped
-                skip = True
+        with DockerContainer(self.name, self.spec.get('docker')[0].get('image'), self.exec_uuid,
+                             self.clone_url, self.working_directory, self.env_vars, ref=self.ref) as docker:
 
-        if not skip:
-            self.docker.start()
-            self._run()
-            self.docker.stop()
-        return self.state
+            self.steps = [Step.factory(docker, step) for step in self.spec.get('steps')]
+            skip = False
+            if self.run_condition.get('branch'):
+                if not re.search(self.run_condition['branch'], self.branch):
+                    logger.debug('skipping %s because %s doesnt match condition %s',
+                                 self.name, self.branch, self.run_condition['branch'])
+                    self.state = Status.skipped
+                    skip = True
+            if self.run_condition.get('tag'):
+                if not re.search(self.run_condition['tag'], self.tag):
+                    logger.debug('skipping %s because %s doesnt match condition %s',
+                                 self.name, self.tag, self.run_condition['tag'])
+                    self.state = Status.skipped
+                    skip = True
 
-    def _run(self) -> None:
-        self.state = Status.running
-        try:
-            logger.info('---- Running Job: %s ----', self.name)
-            logger.debug('exec_uuid: %s, env_vars: %s', self.exec_uuid, self.env_vars)
-            for step in self.steps:
-                logger.info('Executing Step: %s', step)
-                output = step.run()
-                if not output:
-                    logger.error('Job[%s]\n%s', self.name, output.output)
+            if not skip:
+                self.state = Status.running
+                try:
+                    logger.info('---- Running Job: %s ----', self.name)
+                    logger.debug('exec_uuid: %s, env_vars: %s', self.exec_uuid, self.env_vars)
+                    for step in self.steps:
+                        logger.info('Executing Step: %s', step)
+                        output = step.run()
+                        if not output:
+                            logger.error('Job[%s]\n%s', self.name, output.output)
+                            self.state = Status.failed
+                            return
+                    logger.info('Job (%s) Passed in %.2f seconds', self.name, docker.duration)
+                except Exception as e:
                     self.state = Status.failed
-                    return
-            logger.info('Job (%s) Passed in %.2f seconds', self.name, self.docker.duration)
-        except Exception as e:
-            self.docker.stop()
-            self.state = Status.failed
-            raise e
-        self.state = Status.passed
+                    raise e
+                self.state = Status.passed
+            return self.state
 
 
 class Step:
@@ -471,19 +478,19 @@ def main(repo_slab: str = None, env_vars: List[str] = None, threads: int = 1, re
     _setup()
 
     clone_url = 'https://github.com/{}.git'.format(repo_slab)
-    config = _download_repo_build_config(repo_slab, ref)
+    _config = _download_repo_build_config(repo_slab, ref)
     if not config:
         return False
 
     try:
-        config['workflows'].pop('version')
+        _config['workflows'].pop('version')
     except KeyError:
         pass
 
     env_vars.append('ZEUS_USERNAME={}'.format(repo_slab.split('/')[0]))
 
-    workflows = {name: Workflow(name, config['jobs'], spec, clone_url, threads, env_vars=env_vars, ref=ref)
-                 for name, spec in config['workflows'].items()}
+    workflows = {name: Workflow(name, _config['jobs'], spec, clone_url, threads, env_vars=env_vars, ref=ref)
+                 for name, spec in _config['workflows'].items()}
 
     results = []
     for workflow_name, workflow in workflows.items():
@@ -527,11 +534,11 @@ def _download_repo_build_config(repo_slab, ref) -> dict:
         response = urllib.request.urlopen(url_format.format(repo_slab=repo_slab, ref=ref.split('/')[-1]))
     except urllib.error.HTTPError:
         logger.error('couldnt fetch build config')
-        return
+        return {}
 
     if response.status == 200:
-        config = yaml.load(response, yaml.Loader)
-        return config
+        _config = yaml.load(response, yaml.Loader)
+        return _config
 
 
 if __name__ == '__main__':

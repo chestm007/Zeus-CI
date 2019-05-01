@@ -3,7 +3,14 @@ listeners
 
 build_coordinator
   |-- build_queue populated by new jobs from database(persistence)
+  |     > perhaps look into rpyc or something similar to do the checks, and then
+  |       feed the build_coordinators jobs, mah web scale yo
+  |
   \-- build_pool
+        |-- sends off runners to run the build
+        |     > need to be intelligent and stop firing off runners when the user
+        |       doesnt have enough container_limit to let it run.
+        |
         |-- runner
         |-- ...
         \-- runner
@@ -17,3 +24,6 @@ build_coordinator
                           \-- step
                           \-- ...
                           \-- step
+
+resource_allocator
+  \-- manages user level container limits

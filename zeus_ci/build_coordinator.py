@@ -93,7 +93,6 @@ class BuildCoordinator:
                 pass
 
     def _runnable_builds(self, session):
-        logger.debug('polling database for runnable builds')
         return session.query(Build).filter_by(status=Status.created).all()
 
     def run(self):
@@ -106,7 +105,8 @@ class BuildCoordinator:
                     time.sleep(self.config['build_poll_sec'])
 
                     runnable_builds = self._runnable_builds(session)
-                    logger.debug('runnable_builds: %s', runnable_builds)
+                    if runnable_builds:
+                        logger.debug('runnable_builds: %s', runnable_builds)
                     for build in reversed(runnable_builds):
                         self.build_queue.put(build.id)
         except KeyboardInterrupt:
