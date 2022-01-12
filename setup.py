@@ -22,7 +22,11 @@ setup(
         'pyyaml',
         'flask',
         'sqlalchemy',
-        'pygithub'
+        'pygithub',
+        'faust',
+        'rpyc',
+        'systemd-python',
+        'github-webhook'
     ],
     extras_require={
         'journal_logging': ['python-systemd'],

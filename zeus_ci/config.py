@@ -21,7 +21,7 @@ class Config:
         for location in self.file_locations:
             try:
                 with open(os.path.join(location, 'config.yml'), 'r') as f:
-                    config = yaml.load(f)
+                    config = yaml.safe_load(f)
             except FileNotFoundError:
                 continue
 
@@ -30,6 +30,6 @@ class Config:
             self.listener = config.get('listener', {})
             self.loglevel = config.get('loglevel', {})
             self.build_coordinator = config.get('build_coordinator', {})
-            self.logging = config.get('loggging', {})
+            self.logging = config.get('logging', {})
             self.resource_allocator = config.get('resource_allocator', {})
             self.loaded = True

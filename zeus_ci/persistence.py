@@ -1,9 +1,12 @@
-from sqlalchemy import Column, Integer, String, JSON, Enum, create_engine, ForeignKey, Boolean, types
+from sqlalchemy import Column, Integer, String, JSON, Enum, create_engine, ForeignKey, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship, backref, Session
 from sqlalchemy.orm.attributes import flag_modified
 
+import faust
+
 from zeus_ci import config, Status
+
 
 
 Base = declarative_base()
