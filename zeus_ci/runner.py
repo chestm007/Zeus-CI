@@ -111,6 +111,7 @@ class DockerContainer:
             working_directory = self._working_directory.replace('~', tilda)
             self.exec('mkdir {}'.format(working_directory))
             self.w_dir = working_directory
+        logger.debug(info)
         return info
 
     def exec(self, command: str) -> ProcessOutput:
@@ -233,7 +234,7 @@ class Stage(Stateful):
                         logger.info('Executing Step: %s', step)
                         output = step.run()
                         if not output:
-                            logger.error('Job[%s]\n%s', self.name, output.output)
+                            logger.error('Job Failed[%s]\n%s', self.name, output.output)
                             self.state = Status.failed
                             return
                     logger.info('Job (%s) Passed in %.2f seconds', self.name, docker.duration)
