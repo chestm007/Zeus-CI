@@ -1,24 +1,24 @@
-#place this file in '/etc/zeus-ci/' and edit to suit.
+# place this file in '/etc/zeus-ci/' and edit to suit.
 
-#logging:
-#  level:
-#  filepath:
-#  use_journal:
-#  format:
+# logging:
+#   level:
+#   filepath:
+#   use_journal:
+#   format:
 
-#database:
-#  protocol:
-#  args:
+# database:
+#   protocol:
+#   args:
 
-#listener:
-#  listen_address:
-#  port:
+# listener:
+#   listen_address:
+#   port:
 
-#build_coordinator:
-#  runner_threads:
-#  concurrent_builds:
-#  build_poll_sec:
+# build_coordinator:
+#   runner_threads:
+#   concurrent_builds:
+#   build_poll_sec:
 
-#resource_allocator:
-#  address:
-#  port:
+# resource_allocator:
+#   address:
+#   port:
