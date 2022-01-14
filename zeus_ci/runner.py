@@ -111,7 +111,7 @@ class DockerContainer:
             working_directory = self._working_directory.replace('~', tilda)
             self.exec('mkdir {}'.format(working_directory))
             self.w_dir = working_directory
-        logger.debug(info)
+        #logger.debug(info)
         return info
 
     def exec(self, command: str) -> ProcessOutput:
@@ -207,8 +207,7 @@ class Stage(Stateful):
         self.working_directory = spec.get('working_directory')
 
     def run(self) -> None:
-        with DockerCont
-            ainer(self.name, self.spec.get('docker')[0].get('image'), self.exec_uuid,
+        with DockerContainer(self.name, self.spec.get('docker')[0].get('image'), self.exec_uuid,
                              self.clone_url, self.working_directory, self.env_vars, ref=self.ref) as docker:
 
             self.steps = [Step.factory(docker, step) for step in self.spec.get('steps')]
