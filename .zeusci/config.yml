@@ -1,10 +1,13 @@
 default_steps: &default_steps
   steps:
+    - run:
+        name: install git
+        command: |
+          apk add git
     - checkout
     - run:
         name: install dependencies
         command: |
-          apk add git
           python -m venv venv
           chmod -R a+rwx /usr/share
           . venv/bin/activate
