@@ -18,7 +18,7 @@ upload_to_pypi: &upload_to_pypi
     - run:
         name: install build tools
         command: |
-          apk add git build-base libffi-dev
+          apk add git build-base libffi-dev musl-dev
           python -m pip install --upgrade pip
     - checkout
     - run:
