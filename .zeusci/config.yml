@@ -19,6 +19,7 @@ upload_to_pypi: &upload_to_pypi
         name: install build tools
         command: |
           apk add git build-base libffi-dev
+          python -m pip install --upgrade pip
     - checkout
     - run:
         name: init .pypirc
