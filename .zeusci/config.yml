@@ -33,17 +33,17 @@ upload_to_pypi: &upload_to_pypi
 jobs:
   python3.6:
     docker:
-      - image: python:3.6.15
+      - image: cimg/python:3.6.15
     working_directory: ~/repo
     <<: *default_steps
   python3.7:
     docker:
-      - image: python:3.7.12
+      - image: cimg/python:3.7.12
     working_directory: ~/repo
     <<: *default_steps
   deploy:
     docker:
-      - image: python:3.7.12
+      - image: cimg/python:3.7.12
     working_directory: ~/repo
     <<: *upload_to_pypi
 
