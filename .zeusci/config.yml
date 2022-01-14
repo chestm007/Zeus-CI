@@ -1,7 +1,7 @@
 default_steps: &default_steps
   steps:
     - run:
-        name: install git
+        name: install build tools
         command: |
           apk add git build-base libffi-dev
     - checkout
@@ -15,6 +15,10 @@ default_steps: &default_steps
 
 upload_to_pypi: &upload_to_pypi
   steps:
+    - run:
+        name: install build tools
+        command: |
+          apk add git build-base libffi-dev
     - checkout
     - run:
         name: init .pypirc
@@ -26,7 +30,6 @@ upload_to_pypi: &upload_to_pypi
     - run:
         name: package and upload
         command: |
-          sudo apt-get install -y virtualenv
           python -m venv venv
           . venv/bin/activate
           pip install twine
