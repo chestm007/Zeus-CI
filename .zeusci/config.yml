@@ -3,7 +3,7 @@ default_steps: &default_steps
     - run:
         name: install git
         command: |
-          apk add git
+          apk add git build-base
     - checkout
     - run:
         name: install dependencies
