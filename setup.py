@@ -25,11 +25,9 @@ setup(
         'pygithub',
         'faust',
         'rpyc',
-        'systemd-python',
         'github-webhook'
     ],
     extras_require={
-        'journal_logging': ['python-systemd'],
         'github_status_reporting': ['github'],
         'github_webhook_listener': ['github-webhook'],
         'resource_allocator': ['rpyc'],
