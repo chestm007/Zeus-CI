@@ -1,9 +1,12 @@
+install_build_tools: &install_build_tools
+  run:
+      name: install build tools
+      command: |
+        apk add git build-base libffi-dev
+
 default_steps: &default_steps
   steps:
-    - run:
-        name: install build tools
-        command: |
-          apk add git build-base libffi-dev
+    - <<: *install_build_tools
     - checkout
     - run:
         name: install dependencies
@@ -15,12 +18,7 @@ default_steps: &default_steps
 
 upload_to_pypi: &upload_to_pypi
   steps:
-    - run:
-        name: install build tools
-        command: |
-          apk add git build-base libffi-dev py-cryptography
-          python -m pip install --upgrade pip
-
+    - <<: *install_build_tools
     - checkout
     - run:
         name: init .pypirc

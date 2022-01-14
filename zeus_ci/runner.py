@@ -234,7 +234,7 @@ class Stage(Stateful):
                         logger.info('Executing Step: %s', step)
                         output = step.run()
                         if not output:
-                            logger.error(f'Job Failed[{self.name}]\n{output}')
+                            logger.error(f'Job Failed[{self.name}]\n{output.stderr}')
                             self.state = Status.failed
                             return self.state
                     logger.info('Job (%s) Passed in %.2f seconds', self.name, docker.duration)
@@ -443,9 +443,9 @@ class Workflow(Stateful):
         for state in (Status.failed, Status.passed, Status.skipped):
             stages = set(filter(lambda s: s.state == state, self.stages.values()))
             if stages:
-                statuses.append(f'{len(stages)} {state.name} {", ".join(s.name for s in stages)}')
+                statuses.append(f'{len(stages)} {state.name} [{", ".join(s.name for s in stages)}]')
 
-        return ' | '.join(statuses)
+        return ' || '.join(statuses)
 
 
 def main(repo_slab: str = None, env_vars: List[str] = None, threads: int = 1, ref=None) -> bool:
