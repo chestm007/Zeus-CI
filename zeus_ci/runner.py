@@ -206,6 +206,9 @@ class Stage(Stateful):
         self.spec = spec
         self.working_directory = spec.get('working_directory')
 
+    def __repr__(self):
+        return self.name
+
     def run(self) -> None:
         with DockerContainer(self.name, self.spec.get('docker')[0].get('image'), self.exec_uuid,
                              self.clone_url, self.working_directory, self.env_vars, ref=self.ref) as docker:
@@ -438,16 +441,14 @@ class Workflow(Stateful):
 
     @property
     def status_string(self) -> str:
-        format_string = "{num_stages} {state}\n{stage_summary}\n\n"
 
-        status_string = ''
+        statuses = []
         for state in (Status.failed, Status.passed, Status.skipped):
             stages = set(filter(lambda s: s.state == state, self.stages.values()))
             if stages:
-                status_string += format_string.format(num_stages=len(stages),
-                                                      state=state.name,
-                                                      stage_summary='\n'.join(s.name for s in stages))
-        return status_string
+                statuses.append(f'{len(stages)} {state.name} {", ".join(stages)}')
+
+        return ' | '.join(statuses)
 
 
 def main(repo_slab: str = None, env_vars: List[str] = None, threads: int = 1, ref=None) -> bool:
