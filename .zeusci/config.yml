@@ -4,8 +4,6 @@ default_steps: &default_steps
     - run:
         name: install dependencies
         command: |
-          sudo apt-get update
-          sudo apt-get install -y virtualenv
           python -m venv venv
           sudo chmod -R a+rwx /usr/share
           . venv/bin/activate
@@ -35,17 +33,17 @@ upload_to_pypi: &upload_to_pypi
 jobs:
   python3.6:
     docker:
-      - image: circleci/python:3.6.8-stretch
+      - image: docker/python:3.6.15
     working_directory: ~/repo
     <<: *default_steps
   python3.7:
     docker:
-      - image: circleci/python:3.7.3-stretch
+      - image: docker/python:3.7.12
     working_directory: ~/repo
     <<: *default_steps
   deploy:
     docker:
-      - image: circleci/python:3.7.3-stretch
+      - image: docker/python:3.7.12
     working_directory: ~/repo
     <<: *upload_to_pypi
 
