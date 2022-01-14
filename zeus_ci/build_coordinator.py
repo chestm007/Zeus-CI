@@ -69,13 +69,19 @@ class BuildCoordinator:
                             session.commit()
 
                             logger.debug('executing runner.main process')
-                            if runner.main(build.repo.name,
-                                           threads=self.config['runner_threads'],
-                                           ref=ref,
-                                           env_vars=env_vars):
+                            status = runner.main(
+                                build.repo.name,
+                                threads=self.config['runner_threads'],
+                                ref=ref,
+                                env_vars=env_vars)
+                            logger.debug("runner main process completed")
+
+                            if status == Status.passed:
+                                logger.debug("build passed")
                                 github.update_status(build, GithubStatus.success)
                                 build.status = Status.passed
                             else:
+                                logger.debug("build failed")
                                 github.update_status(build, GithubStatus.failure)
                                 build.status = Status.failed
 

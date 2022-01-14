@@ -434,9 +434,7 @@ class Workflow(Stateful):
         """
         stage.state = Status.running
         stage.run()
-        if stage.state == Status.passed:
-            return True
-        return False
+        return stage.state
 
     @property
     def status_string(self) -> str:
