@@ -20,6 +20,7 @@ upload_to_pypi: &upload_to_pypi
         command: |
           apk add git build-base libffi-dev musl-dev
           python -m pip install --upgrade pip
+          
     - checkout
     - run:
         name: init .pypirc
