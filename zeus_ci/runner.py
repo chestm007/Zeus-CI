@@ -121,7 +121,7 @@ class DockerContainer:
         for env in self.env_vars:
             cmd.extend(['-e', env])
         cmd.append(self.name)
-        cmd.extend(['bash', '-c', command])
+        cmd.extend(['sh', '-c', command])
         out = _exec(cmd)
         return out
 
@@ -234,7 +234,7 @@ class Stage(Stateful):
                         logger.info('Executing Step: %s', step)
                         output = step.run()
                         if not output:
-                            logger.error('Job Failed[%s]', self.name)
+                            logger.error(f'Job Failed[{self.name}]\n{output}')
                             self.state = Status.failed
                             return self.state
                     logger.info('Job (%s) Passed in %.2f seconds', self.name, docker.duration)
