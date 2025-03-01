@@ -53,7 +53,7 @@ jobs:
 workflows:
   build_and_test:
     stages:
-      - python3.6
+      - python3.13
       #- deploy:
       #    run_when:
       #      branch: 'master'
