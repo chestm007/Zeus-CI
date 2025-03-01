@@ -25,10 +25,12 @@ class Github:
 
     def update_status(self, build: Build, status: GithubStatus):
         repo = self.client.get_repo(build.repo.name)
+        logger.debug(f'loading data for build {build} to repo {repo}')
         if not repo:
             raise FileNotFoundError  # TODO: make this something better
 
         commit = repo.get_commit(sha=build.commit)
+        logger.debug(f'Applies to commit: {commit}')
         if not commit:
             raise AttributeError  # TODO: come on man, these are getting ridiculous
 
