@@ -234,7 +234,7 @@ class Stage(Stateful):
                         logger.info('Executing Step: %s', step)
                         output = step.run()
                         if not output:
-                            logger.error(f'Job Failed[{self.name}]\n{output.stderr}')
+                            logger.error(f'Job Failed[{self.name}]\nstderr: {output.stderr}\n stdout: {output.stdout}')
                             self.state = Status.failed
                             return self.state
                         logger.info(output)
