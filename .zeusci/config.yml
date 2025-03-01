@@ -18,7 +18,7 @@ default_steps: &default_steps
 
 upload_to_pypi: &upload_to_pypi
   steps:
-    - <<: *install_build_tools
+    #- <<: *install_build_tools
     - checkout
     - run:
         name: init .pypirc
@@ -33,24 +33,19 @@ upload_to_pypi: &upload_to_pypi
           python -m venv venv
           . venv/bin/activate
           pip install twine
-          sed -i "s/PROJECTVERSION/`python get_build_version.py`/g" setup.py
+          sed -i "s/0.0.1/`python get_build_version.py`/g" setup.py
           python setup.py sdist
           twine upload dist/*
 
 jobs:
-  python3.6:
+  python3.13:
     docker:
-      - image: python:3.6.15-alpine3.15
-    working_directory: ~/repo
-    <<: *default_steps
-  python3.7:
-    docker:
-      - image: python:3.7.12-alpine3.15
+      - image: python:3.13-alpine3.21
     working_directory: ~/repo
     <<: *default_steps
   deploy:
     docker:
-      - image: python:3.7.12-alpine3.15
+      - image: python:3.13-alpine3.21
     working_directory: ~/repo
     <<: *upload_to_pypi
 
@@ -59,12 +54,10 @@ workflows:
   build_and_test:
     stages:
       - python3.6
-      - python3.7
-      - deploy:
-          run_when:
-            branch: 'master'
-            tag: '^\d+\.\d+\.\d+$'
+      #- deploy:
+      #    run_when:
+      #      branch: 'master'
+      #      tag: '^\d+\.\d+\.\d+$'
 
-          requires:
-            - python3.6
-            - python3.7
+      #    requires:
+      #      - python3.6
