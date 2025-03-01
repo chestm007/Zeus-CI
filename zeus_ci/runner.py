@@ -50,7 +50,7 @@ class ProcessOutput:
 
 
 def _exec(cmd: list) -> ProcessOutput:
-    proc = subprocess.Popen(cmd, stderr=PIPE, stdout=PIPE, shell=True)
+    proc = subprocess.Popen(" ".join(cmd), stderr=PIPE, stdout=PIPE, shell=True)
     stdout, stderr = proc.communicate()
     process_output = ProcessOutput(stdout, stderr, proc.returncode)
     return process_output
