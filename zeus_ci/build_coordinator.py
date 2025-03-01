@@ -47,6 +47,7 @@ class BuildCoordinator:
                     build.status = Status.starting
                     session.commit()
                     github = Github(TokenAuth(build.repo.user.token))
+                    logger.debug(f'building github object for user: {build.repo.user}')
                     github.update_status(build, GithubStatus.pending)
 
                     try:
