@@ -25,8 +25,8 @@ class Build(Base):
     repo = relationship('Repo', backref=backref('builds'))
 
     def __repr__(self):
-        return '%s(id: %s, repo: %s, ref: %s, status: %s)' % (
-            self.__class__.__name__, self.id, self.repo, self.ref, self.status.name)
+        return '%s(id: %s, repo: %s, ref: %s, commit %s, status: %s)' % (
+            self.__class__.__name__, self.id, self.repo, self.ref, self.commit, self.status.name)
 
 
 class Repo(Base):
