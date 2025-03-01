@@ -1,9 +1,3 @@
-install_build_tools: &install_build_tools
-  run:
-      name: install build tools
-      command: |
-        apk add git build-base libffi-dev
-
 default_steps: &default_steps
   steps:
     #- <<: *install_build_tools
@@ -13,19 +7,14 @@ default_steps: &default_steps
         command: |
           python -m venv venv
           . venv/bin/activate
+          pip install --upgrade pip
+          sed -i "s/0.0.1/`python get_build_version.py`/g" setup.py
           pip install .
 
 upload_to_pypi: &upload_to_pypi
   steps:
     #- <<: *install_build_tools
     - checkout
-    - run:
-        name: init .pypirc
-        command: |
-          echo -e "[pypi]" >> ~/.pypirc
-          echo -e "username = chestm007" >> ~/.pypirc
-          echo -e "password = $PYPI_PASSWORD" >> ~/.pypirc
-
     - run:
         name: package and upload
         command: |
