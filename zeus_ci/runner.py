@@ -111,7 +111,7 @@ class DockerContainer:
             working_directory = self._working_directory.replace('~', tilda)
             self.exec('mkdir {}'.format(working_directory))
             self.w_dir = working_directory
-        #logger.debug(info)
+        logger.debug(info)
         return info
 
     def exec(self, command: str) -> ProcessOutput:
