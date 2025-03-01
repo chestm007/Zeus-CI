@@ -6,7 +6,7 @@ install_build_tools: &install_build_tools
 
 default_steps: &default_steps
   steps:
-    - <<: *install_build_tools
+    #- <<: *install_build_tools
     - checkout
     - run:
         name: install dependencies
