@@ -4,7 +4,7 @@ import yaml
 
 
 class Config:
-    file_locations = ['/etc/zeus-ci/']
+    file_locations = ['assets', '/etc/zeus-ci/']
     filename = 'config.yml'
 
     def __init__(self):

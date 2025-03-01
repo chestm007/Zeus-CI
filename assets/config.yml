@@ -1,14 +1,14 @@
 # place this file in '/etc/zeus-ci/' and edit to suit.
 
-# logging:
-#   level:
+logging:
+  level: INFO
 #   filepath:
 #   use_journal:
 #   format:
 
-# database:
-#   protocol:
-#   args:
+database:
+  protocol: sqlite
+  args: /etc/zeus-ci/database.db
 
 # listener:
 #   listen_address:

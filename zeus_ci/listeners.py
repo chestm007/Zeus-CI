@@ -6,7 +6,7 @@ from zeus_ci import logger
 from flask import Flask
 from sqlalchemy.orm.exc import NoResultFound
 
-from zeus_ci import Status
+from zeus_ci import Status, Config
 from zeus_ci.persistence import Database, Build, Repo, User
 from zeus_ci.scm_reporter import Github, TokenAuth, GithubStatus
 
@@ -85,11 +85,13 @@ def main():
     parser.add_argument('--sqlalchemy-protocol', type=str)
     parser.add_argument('--sqlalchemy-protocol-args', type=str)
     args = parser.parse_args()
+    config = Config()
 
     sqlalchemy_args = dict(
-        protocol=args.sqlalchemy_protocol,
-        protocol_args=args.sqlalchemy_protocol_args
+        protocol=args.sqlalchemy_protocol or config.database.get('protocol'),
+        protocol_args=args.sqlalchemy_protocol_args or config.database.get('args')
     )
+    logger.info(f'Using sql config: {sqlalchemy_args}')
     start(args.listen_address, args.port, [WebhookProviders.github],
           sqlalchemy_args=sqlalchemy_args)
 

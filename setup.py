@@ -21,6 +21,7 @@ setup(
     install_requires=[
         'pyyaml',
         'flask',
+        'werkzeug==2.2.2',
         'sqlalchemy',
         'pygithub',
         'faust',

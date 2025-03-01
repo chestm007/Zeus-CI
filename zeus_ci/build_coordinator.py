@@ -3,7 +3,7 @@ import multiprocessing
 import signal
 import time
 
-from zeus_ci import runner, logger, Status
+from zeus_ci import runner, logger, Status, Config
 from zeus_ci.persistence import Database, Build
 from zeus_ci.scm_reporter import Github, TokenAuth, GithubStatus
 
@@ -135,15 +135,20 @@ def main():
     parser.add_argument('--build-poll-sec', type=int, help='interval between database polling for new builds',
                         default=10)
     args = parser.parse_args()
+
+    loaded_config = Config()
     sqlalchemy_args = dict(
-        protocol=args.sqlalchemy_protocol,
-        protocol_args=args.sqlalchemy_protocol_args
+        protocol=args.sqlalchemy_protocol or loaded_config.database.get('protocol'),
+        protocol_args=args.sqlalchemy_protocol_args or loaded_config.database.get('args')
     )
 
     config = dict(
         sqlalchemy_args=sqlalchemy_args,
         build_poll_sec=args.build_poll_sec
     )
+
+    logger.info(f'Using config: {config}')
+
     if args.runner_threads:
         logger.debug('setting runner threads to %s', args.runner_threads)
         config['runner_threads'] = args.runner_threads
