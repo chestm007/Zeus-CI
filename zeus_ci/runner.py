@@ -50,7 +50,7 @@ class ProcessOutput:
 
 
 def _exec(cmd: list) -> ProcessOutput:
-    proc = subprocess.Popen(" ".join(cmd), stderr=PIPE, stdout=PIPE, shell=True)
+    proc = subprocess.Popen(cmd, stderr=PIPE, stdout=PIPE)
     stdout, stderr = proc.communicate()
     process_output = ProcessOutput(stdout, stderr, proc.returncode)
     return process_output
@@ -121,7 +121,7 @@ class DockerContainer:
         for env in self.env_vars:
             cmd.extend(['-e', env])
         cmd.append(self.name)
-        cmd.extend(['sh', '-c', command])
+        cmd.extend(['sh', '-c', '"""', command, '"""'])
         out = _exec(cmd)
         return out
 
