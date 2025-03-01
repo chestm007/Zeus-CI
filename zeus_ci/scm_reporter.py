@@ -1,6 +1,7 @@
 from collections import namedtuple
 from enum import Enum
 
+from zeus_ci import logger
 from zeus_ci.persistence import Build
 
 TokenAuth = namedtuple('TokenAuth', ('access_token', ))
@@ -31,9 +32,11 @@ class Github:
         if not commit:
             raise AttributeError  # TODO: come on man, these are getting ridiculous
 
+        logger.info(f'updating commit status: {status.name}, {repo.name}')
+
         commit.create_status(
             state=status.name,
-            target_url='https://fooCI.com',  # TODO: load this from zeus-ci config file
+            target_url='https://www.google.com',  # TODO: load this from zeus-ci config file
             description=self.status_descriptions[status],
             context=repo.name
         )
