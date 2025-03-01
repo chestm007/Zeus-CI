@@ -122,6 +122,7 @@ class DockerContainer:
             cmd.extend(['-e', env])
         cmd.append(self.name)
         cmd.extend(['sh', '-c', command])
+        logger.debug(f'Executing {command} in docker')
         out = _exec(cmd)
         return out
 
@@ -299,9 +300,11 @@ class CheckoutStep(Step):
         out = self.docker.exec('git clone {} .'.format(self.docker.clone_url))
 
         if not self.docker.ref:  # if we arent building a tag/commit, just return
+            logger.debug(f'git clone {self.docker.clone_url}')
             return out
 
         out = self.docker.exec('git checkout {}'.format(self.docker.ref))
+        logger.debug(f'git checkout {self.docker.ref}')
         return out
 
     def __str__(self):
