@@ -12,7 +12,6 @@ default_steps: &default_steps
         name: install dependencies
         command: |
           python -m venv venv
-          chmod -R a+rwx /usr/share
           . venv/bin/activate
           pip install .
 
