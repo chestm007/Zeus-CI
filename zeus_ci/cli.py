@@ -64,6 +64,14 @@ def envvars(ctx, repo, add, **kwargs):
     if kwargs['list']:
         click.echo(repo.shell_ready_envvars())
 
+@repos.command()
+@click.pass_context
+def list(ctx):
+    session = ctx.obj['session']
+    repos = session.query(Repo)
+    for repo in repos:
+        click.echo(repo.name)
+
 
 @main.group()
 def builds():
