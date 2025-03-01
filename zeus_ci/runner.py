@@ -121,7 +121,7 @@ class DockerContainer:
         for env in self.env_vars:
             cmd.extend(['-e', env])
         cmd.append(self.name)
-        cmd.extend(['sh', '-c', '"""', command, '"""'])
+        cmd.extend(['sh', '-c', command])
         out = _exec(cmd)
         return out
 
