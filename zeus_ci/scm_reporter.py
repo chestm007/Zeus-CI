@@ -36,7 +36,4 @@ class Github:
 
         commit.create_status(
             state=status.name,
-            target_url='https://www.google.com',  # TODO: load this from zeus-ci config file
-            description=self.status_descriptions[status],
-            context=repo.name
         )
