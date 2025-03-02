@@ -8,7 +8,7 @@ default_steps: &default_steps
           python -m venv venv
           . venv/bin/activate
           pip install --upgrade pip
-          sed -i "s/0.0.1/`python get_build_version.py`/g" setup.py
+          sed -i "s/PROJECTVERSION/`python get_build_version.py`/g" setup.py
           pip install .
 
 upload_to_pypi: &upload_to_pypi
@@ -21,7 +21,7 @@ upload_to_pypi: &upload_to_pypi
           python -m venv venv
           . venv/bin/activate
           pip install twine
-          sed -i "s/0.0.1/`python get_build_version.py`/g" setup.py
+          sed -i "s/PROJECTVERSION/`python get_build_version.py`/g" setup.py
           python setup.py sdist
           twine upload dist/*
 
