@@ -246,11 +246,9 @@ class Stage(Stateful):
                         self.stdout += output.stdout
                         self.stderr += output.stderr
                         if not output:
-                            logger.error(f'Job Failed[{self.name}]\nstderr: {output.stderr}\n stdout: {output.stdout}')
+                            logger.error(f'Job Failed[{self.name}]')
                             self.state = Status.failed
                             return self.state
-
-                        logger.info(output)
 
                     logger.info('Job (%s) Passed in %.2f seconds', self.name, docker.duration)
                 except Exception as e:
