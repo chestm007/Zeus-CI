@@ -455,9 +455,9 @@ class Workflow(Stateful):
             logger.debug(f'folder already exists, skipping')
             pass
 
-        with open(f'{this_build_log_location}/{self.name}', 'w+') as logfile:
+        with open(f'{this_build_log_location}/{self.name}', 'a') as logfile:
             logfile.write(f'STDOUT:\n{stage.stdout}\n\nSTDERR:\n{stage.stderr}\n\n')
-            
+
     @staticmethod
     def _run_stage(stage: Stage) -> bool:
         """
