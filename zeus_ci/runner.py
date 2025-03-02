@@ -27,6 +27,11 @@ class Stateful:
 
 
 class ProcessOutput:
+    """
+    Represents output from a process
+
+    Evaluates to True if process returncode == 0, False otherwise
+    """
     def __init__(self, stdout: bytes, stderr: bytes, returncode: int):
         self.stdout = stdout.decode()
         self.stderr = stderr.decode()
@@ -236,16 +241,17 @@ class Stage(Stateful):
                     for step in self.steps:
                         logger.info('Executing Step: %s', step)
                         output = step.run()
+
+                        # TODO: log step names - currently they dont know their own name
+                        self.stdout += output.stdout
+                        self.stderr += output.stderr
                         if not output:
                             logger.error(f'Job Failed[{self.name}]\nstderr: {output.stderr}\n stdout: {output.stdout}')
                             self.state = Status.failed
                             return self.state
 
-                        # TODO: log step names - currently they dont know their own name
-                        self.stdout += output.stdout
-                        self.stderr += output.stderr
                         logger.info(output)
-                        
+
                     logger.info('Job (%s) Passed in %.2f seconds', self.name, docker.duration)
                 except Exception as e:
                     self.state = Status.failed
@@ -304,13 +310,13 @@ class AttachStep(Step):
 
 class CheckoutStep(Step):
     def run(self) -> ProcessOutput:
-        out = self.docker.exec('git clone {} .'.format(self.docker.clone_url))
+        out = self.docker.exec(f'git clone {self.docker.clone_url} .')
 
         if not self.docker.ref:  # if we arent building a tag/commit, just return
             logger.debug(f'git clone {self.docker.clone_url}')
             return out
 
-        out = self.docker.exec('git checkout {}'.format(self.docker.ref))
+        out = self.docker.exec(f'git checkout {self.docker.ref}')
         logger.debug(f'git checkout {self.docker.ref}')
         return out
 
@@ -462,7 +468,7 @@ class Workflow(Stateful):
             logfile.write(f'STDOUT:\n{stage.stdout}\n\nSTDERR:\n{stage.stderr}\n\n')
 
     @staticmethod
-    def _run_stage(stage: Stage) -> bool:
+    def _run_stage(stage: Stage) -> Stage:
         """
         runs the Stage passed in
         returns True if Stage passed, or False if it  fails
