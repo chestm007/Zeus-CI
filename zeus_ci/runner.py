@@ -1,4 +1,3 @@
-import argparse
 import os
 import re
 import subprocess
@@ -115,7 +114,6 @@ class DockerContainer:
             working_directory = self._working_directory.replace('~', tilda)
             self.exec('mkdir {}'.format(working_directory))
             self.w_dir = working_directory
-        logger.debug(info)
         return info
 
     def exec(self, command: str) -> ProcessOutput:
@@ -126,7 +124,6 @@ class DockerContainer:
             cmd.extend(['-e', env])
         cmd.append(self.name)
         cmd.extend(['sh', '-c', command])
-        logger.debug(f'Executing {command} in docker')
         out = _exec(cmd)
         return out
 
@@ -258,6 +255,8 @@ class Stage(Stateful):
 
 
 class Step:
+    name = 'step'
+
     def __init__(self, docker: DockerContainer, *args):
         self.docker = docker
         self.init(*args)
@@ -275,12 +274,15 @@ class Step:
             return PersistStep(docker, step.get('persist_to_workspace'))
         elif step.get('attach_workspace'):
             return AttachStep(docker, step.get('attach_workspace'))
+        else:
+            raise NotImplementedError()
 
     def run(self) -> ProcessOutput:
         raise NotImplementedError()
 
 
 class PersistStep(Step):
+    name = 'persist'
     def init(self, spec: dict) -> None:
         self.root = spec.get('root')
         self.paths = spec.get('paths')
@@ -294,6 +296,7 @@ class PersistStep(Step):
 
 
 class AttachStep(Step):
+    name = 'attach'
     def init(self, spec: dict) -> None:
         self.at = spec.get('at')
 
@@ -306,6 +309,7 @@ class AttachStep(Step):
 
 
 class CheckoutStep(Step):
+    name = 'checkout'
     def run(self) -> ProcessOutput:
         out = self.docker.exec(f'git clone {self.docker.clone_url} .')
 
