@@ -427,7 +427,8 @@ class Workflow(Stateful):
         pool.close()
         pool.join()
         results = [r.get() for r in pool_results]
-        logger.debug([r for r in results])
+        for r in results:
+            self._log_to_file(r)
 
         logger.info(self.status_string)
 
@@ -437,6 +438,26 @@ class Workflow(Stateful):
 
         return Status.passed
 
+    def _log_to_file(self, stage):
+        build_log_location = '/etc/zeus-ci/builds'
+        try:
+            logger.debug(f'creating log location at: {build_log_location}')
+            os.mkdir(build_log_location)
+        except FileExistsError:
+            logger.debug('folder already exists, skipping')
+            pass
+
+        this_build_log_location = f'{build_log_location}/{self.build_id}'
+        try:
+            logger.debug(f'creating build directory at: {this_build_log_location}')
+            os.mkdir(this_build_log_location)
+        except FileExistsError:
+            logger.debug(f'folder already exists, skipping')
+            pass
+
+        with open(f'{this_build_log_location}/{self.name}', 'w+') as logfile:
+            logfile.write(f'STDOUT:\n{stage.stdout}\n\nSTDERR:\n{stage.stderr}\n\n')
+            
     @staticmethod
     def _run_stage(stage: Stage) -> bool:
         """
