@@ -47,11 +47,10 @@ class ProcessOutput:
 
     @property
     def output(self):
-        return '==stdout==\n{}\n\n\n==stderr==\n{}\n'.format(self.stdout, self.stderr)
+        return f'==stdout==\n{self.stdout}\n\n\n==stderr==\n{self.stderr}\n'
 
     def __repr__(self):
-        return '{}(stdout={}, stderr={}, returncode={})'.format(
-            self.__class__.__name__, self.stdout, self.stderr, self.returncode)
+        return f'{self.__class__.__name__}(returncode={self.returncode})'
 
 
 def _exec(cmd: list) -> ProcessOutput:
