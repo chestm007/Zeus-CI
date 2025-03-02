@@ -6,7 +6,7 @@ import sys
 import time
 import urllib.request
 import urllib.error
-from multiprocessing.pool import ThreadPool
+from multiprocessing.pool import ThreadPool, ApplyResult
 from subprocess import PIPE
 from typing import Dict, List
 
@@ -186,6 +186,8 @@ class Stage(Stateful):
 
         self.name = name
         self.requires = requires
+        self.stderr = ''
+        self.stdout = ''
         self.ref = ref
         self.tag = None
         self.branch = None
@@ -238,6 +240,8 @@ class Stage(Stateful):
                             logger.error(f'Job Failed[{self.name}]\nstderr: {output.stderr}\n stdout: {output.stdout}')
                             self.state = Status.failed
                             return self.state
+                        self.stdout = output.stdout
+                        self.stderr = output.stderr
                         logger.info(output)
                     logger.info('Job (%s) Passed in %.2f seconds', self.name, docker.duration)
                 except Exception as e:
@@ -341,6 +345,7 @@ def _setup() -> None:
 
 class Workflow(Stateful):
     def __init__(self, name: int,
+                 build_id: int,
                  stages: Dict[str, dict],
                  spec: Dict[str, dict],
                  clone_url: str,
@@ -351,6 +356,7 @@ class Workflow(Stateful):
         super().__init__()
 
         self.exec_uuid = uuid.uuid4().hex
+        self.build_id = build_id
         self.num_threads = num_threads
         self.name = name
         self.ref = ref
@@ -407,7 +413,7 @@ class Workflow(Stateful):
     def run(self) -> None:
         self.state = Status.running
         pool = ThreadPool(self.num_threads)
-        pool_results = []
+        pool_results: list[ApplyResult] = []
 
         while True:
             try:
@@ -421,11 +427,12 @@ class Workflow(Stateful):
         pool.close()
         pool.join()
         results = [r.get() for r in pool_results]
+        logger.debug([r for r in results])
 
         logger.info(self.status_string)
 
         for status in (Status.error, Status.failed):
-            if any(map(lambda r: r == status, results)):
+            if any(map(lambda r: r.state == status, results)):
                 return status
 
         return Status.passed
@@ -438,7 +445,7 @@ class Workflow(Stateful):
         """
         stage.state = Status.running
         stage.run()
-        return stage.state
+        return stage
 
     @property
     def status_string(self) -> str:
@@ -452,22 +459,14 @@ class Workflow(Stateful):
         return ' || '.join(statuses)
 
 
-def main(repo_slab: str = None, env_vars: List[str] = None, threads: int = 1, ref=None) -> bool:
+def main(repo_slab: str,
+         build_id: int,
+         env_vars: List[str] = None,
+         threads: int = 1,
+         ref=None) -> bool:
+
+    # TODO: im not sure if this logic is even used
     if not any([repo_slab, env_vars, threads, ref]):
-        parser = argparse.ArgumentParser(description='Run Zeus-CI jobs locally through docker')
-        parser.add_argument('--env', type=str, nargs='+', help='K=V environment vars to pass to the test')
-        parser.add_argument('--threads', type=int, help='number of docker containers to run concurrently')
-        parser.add_argument('--ref', type=str, help='git ref(commit/tag) to checkout')
-        args = parser.parse_args()
-
-        if args.ref:
-            ref = args.ref
-
-        if args.threads:
-            threads = args.threads
-
-        if args.env:
-            env_vars = env_vars.extend(args.env) if env_vars else args.env
 
         if not repo_slab:
             repo_slab = repo_slab_of_cwd()
@@ -490,7 +489,7 @@ def main(repo_slab: str = None, env_vars: List[str] = None, threads: int = 1, re
 
     env_vars.append('ZEUS_USERNAME={}'.format(repo_slab.split('/')[0]))
 
-    workflows = {name: Workflow(name, _config['jobs'], spec, clone_url, threads, env_vars=env_vars, ref=ref)
+    workflows = {name: Workflow(name, build_id, _config['jobs'], spec, clone_url, threads, env_vars=env_vars, ref=ref)
                  for name, spec in _config['workflows'].items()}
 
     results = []
@@ -540,7 +539,3 @@ def _download_repo_build_config(repo_slab, ref) -> dict:
     if response.status == 200:
         _config = yaml.load(response, yaml.Loader)
         return _config
-
-
-if __name__ == '__main__':
-    main()

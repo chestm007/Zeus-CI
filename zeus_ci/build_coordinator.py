@@ -72,6 +72,7 @@ class BuildCoordinator:
                             logger.debug('executing runner.main process')
                             status = runner.main(
                                 build.repo.name,
+                                build.id,
                                 threads=self.config['runner_threads'],
                                 ref=ref,
                                 env_vars=env_vars)
