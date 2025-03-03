@@ -211,6 +211,8 @@ class Stage(Stateful):
         self.working_directory = spec.get('working_directory')
 
     def run(self) -> None:
+
+        logger.debug(f'_run_stage() called for {self.name}')
         with DockerContainer(self.name, self.spec.get('docker')[0].get('image'), self.exec_uuid,
                              self.clone_url, self.working_directory, self.env_vars, ref=self.ref) as docker:
 
@@ -415,12 +417,14 @@ class Workflow(Stateful):
                         stage.state = Status.skipped
                 else:
                     runnable_stages.append(stage)
+
         return runnable_stages
 
     def _add_stage(self, stage: Stage) -> None:
         self.stages[stage.name] = stage
 
     def run(self) -> None:
+        logger.debug(f'Workflow.run() for {self.build_id}/{self.name}')
         self.state = Status.running
         pool = ThreadPool(self.num_threads)
         pool_results: list[ApplyResult] = []
@@ -430,6 +434,8 @@ class Workflow(Stateful):
                 stages = self.runnable_stages()
                 if stages:
                     for stage in stages:
+                        logger.debug(f'adding stage: {stage.name} to workflow {self.name}:{self.exec_uuid}')
+                        stage.state = Status.starting
                         pool_results.append(pool.apply_async(self._run_stage, (stage, )))
                 time.sleep(1)
             except StopIteration:
