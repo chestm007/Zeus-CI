@@ -28,12 +28,32 @@ upload_to_pypi: &upload_to_pypi
 jobs:
   python3.13:
     docker:
-      - image: cimg/python:3.13.2
+      - image: cimg/python:3.13
+    working_directory: ~/repo
+    <<: *default_steps
+  python3.12:
+    docker:
+      - image: cimg/python:3.12
+    working_directory: ~/repo
+    <<: *default_steps
+  python3.11:
+    docker:
+      - image: cimg/python:3.11
+    working_directory: ~/repo
+    <<: *default_steps
+  python3.10:
+    docker:
+      - image: cimg/python:3.10
+    working_directory: ~/repo
+    <<: *default_steps
+  python3.9:
+    docker:
+      - image: cimg/python:3.9
     working_directory: ~/repo
     <<: *default_steps
   deploy:
     docker:
-      - image: cimg/python:3.13.2
+      - image: cimg/python:3.13
     working_directory: ~/repo
     <<: *upload_to_pypi
 
@@ -42,6 +62,10 @@ workflows:
   build_and_test:
     stages:
       - python3.13
+      - python3.12
+      - python3.11
+      - python3.10
+      - python3.9
       #- deploy:
       #    run_when:
       #      branch: 'master'

@@ -5,9 +5,7 @@ from sqlalchemy.orm.attributes import flag_modified
 
 import faust
 
-from zeus_ci import config, Status
-
-
+from zeus_ci import config, Status, logger
 
 Base = declarative_base()
 
@@ -54,6 +52,8 @@ class Repo(Base):
     def add_envvar(self, var):
         if not self.env_vars:
             self.env_vars = []
+        if var in self.env_vars:
+            logger.info(f'ENV_VAR:{var} already exists in Repo.')
         self.env_vars.append(var)
         flag_modified(self, 'env_vars')
 
