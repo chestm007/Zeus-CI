@@ -1,0 +1,41 @@
+[build-system]
+    requires = [
+        'setuptools',
+        'wheel',
+        'build'
+    ]
+    build-backend = 'setuptools.build_meta'
+
+[project]
+    name='Zeus-CI'
+    version='0.0.6'
+    urls={repository= 'https://github.com/chestm007/zeusci'}
+    license='GPL-2.0'
+    authors=[{name='Max Chesterfield', email='chestm007@hotmail.com'}]
+    maintainers=[{name='Max Chesterfield', email='chestm007@hotmail.com'}]
+    description='python CI server that tries to not suck'
+    dependencies = [
+        'pyyaml',
+        'flask>=2.0.3',
+        'werkzeug>=3.0.6',
+        'sqlalchemy',
+        'pygithub',
+        'faust',
+        'rpyc',
+    ]
+
+[project.optional-dependencies]
+    test = [
+        'pytest',
+        'tox'
+    ]
+    github = [
+        'github',
+        'github-webhook'
+    ]
+[project.scripts]
+    zeus-ci-runner = "zeus_ci.runner:main"
+    zeus-ci-buildcoordinator = "zeus_ci.buildcoordinator:main"
+    zeus-ci-listener = "zeus_ci.listeners:main"
+    zeus-ci-resource-allocator = "zeus_ci.resource_allocator:main"
+    zeus-cli = "zeus_ci.cli:main"

@@ -7,6 +7,6 @@ lcircle/__pycache__/
 
 Zeus_CI\.egg-info/
 
-zeus_ci/__pycache__/
+src/zeus_ci/__pycache__/
 
 *.pyc

@@ -3,7 +3,8 @@ import multiprocessing
 import signal
 import time
 
-from zeus_ci import runner, logger, Status, Config
+from zeus_ci import logger, Status, Config
+from zeus_ci import runner
 from zeus_ci.persistence import Database, Build
 from zeus_ci.scm_reporter import Github, TokenAuth, GithubStatus
 

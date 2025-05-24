@@ -1,11 +1,11 @@
 import argparse
 from enum import Enum
 from typing import List
-from zeus_ci import logger
 
 from flask import Flask
 from sqlalchemy.orm.exc import NoResultFound
 
+from zeus_ci import logger
 from zeus_ci import Status, Config
 from zeus_ci.persistence import Database, Build, Repo, User
 from zeus_ci.scm_reporter import Github, TokenAuth, GithubStatus

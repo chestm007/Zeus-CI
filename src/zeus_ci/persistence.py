@@ -3,8 +3,6 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship, backref, Session
 from sqlalchemy.orm.attributes import flag_modified
 
-import faust
-
 from zeus_ci import config, Status, logger
 
 Base = declarative_base()
